@@ -5,9 +5,9 @@ Go-kit 生成器是一个命令行应用程序，可根据参数生成go-kit ser
 ```
 **Because I'm lazy**, and because it would make it easier for go-kit newcomers to start using it.
 ```
-上面是原作开发这个程序的原因，对于我：
+上面是原作者开发这个程序的原因，对于我：
 * 这样一个可方便生成go-kit代码的程序，不但可以减少手敲代码的数量，还可以预防很多错误
-* 原项目在我fork的时候已经很久时间没有更新功能了，由于go-kit addsvc调整的代码布局，我急需一个工具可以生成与go-kit官方代码布局相同的生成器
+* 原项目在我fork的时候已经很长时间没有更新功能了，由于go-kit addsvc调整了代码布局，我急需一个可以生成与go-kit官方代码布局相同的生成器
 ## 安装
 ```bash
 go get github.com/yiv/gk
