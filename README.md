@@ -136,6 +136,23 @@ project/
             ├── grpc.go
             └── http.go
 ```
+下面是原项目的代码布局：
+```
+project/
+└── pkg
+    ├── endpoints
+    │   └── endpoints.go
+    ├── grpc
+    │   ├── handler.go
+    │   └── pb
+    │       ├── compile.bat
+    │       ├── hello.pb.go
+    │       └── hello.proto
+    ├── http
+    │   └── handler.go
+    └── service
+        └── service.go
+```
 
 ## I don't like the folder structure!
 
