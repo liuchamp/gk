@@ -7,7 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"github.com/apache/thrift/lib/go/thrift"
-	"github.com/kujtimiihoxha/gk/test_dir/test_thrift/pkg/thrift/gen-go/test_thrift"
+	"github.com/yiv/gk/test_dir/test_thrift/pkg/thrift/gen-go/test_thrift"
 	"math"
 	"net"
 	"net/url"

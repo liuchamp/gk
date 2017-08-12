@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"github.com/Sirupsen/logrus"
 	"github.com/Songmu/prompter"
-	"github.com/kujtimiihoxha/gk/templates"
+	"github.com/yiv/gk/templates"
 	"github.com/spf13/afero"
 	"github.com/spf13/viper"
 	"os"

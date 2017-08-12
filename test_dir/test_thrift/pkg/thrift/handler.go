@@ -5,8 +5,8 @@ import (
 	"errors"
 
 	"github.com/go-kit/kit/endpoint"
-	"github.com/kujtimiihoxha/gk/test_dir/test_thrift/pkg/endpoints"
-	thriftTestThrift "github.com/kujtimiihoxha/gk/test_dir/test_thrift/pkg/thrift/gen-go/test_thrift"
+	"github.com/yiv/gk/test_dir/test_thrift/pkg/endpoints"
+	thriftTestThrift "github.com/yiv/gk/test_dir/test_thrift/pkg/thrift/gen-go/test_thrift"
 )
 
 type thriftServer struct {

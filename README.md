@@ -7,8 +7,8 @@ Go-kit generator is a cli application that generates boilerplate code for your g
 
 ## Installation
 ```bash
-go get github.com/kujtimiihoxha/gk
-go install github.com/kujtimiihoxha/gk
+go get github.com/yiv/gk
+go install github.com/yiv/gk
 ```
 ## Running the generator
 `gk` must be run from a project inside the specified `$GOPATH` for it to work.

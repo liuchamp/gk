@@ -1,20 +1,27 @@
 {
   "service":{
-    "path":"{{`{{toSnakeCase .ServiceName}}`}}{{fileSeparator}}pkg{{fileSeparator}}service",
+    "path":"{{`{{toSnakeCase .ServiceName}}`}}{{fileSeparator}}pkg{{fileSeparator}}{{`{{toSnakeCase .ServiceName}}`}}service",
     "file_name":"service.go",
-    "interface_name":"{{`{{toUpperFirstCamelCase .ServiceName}}`}}Service",
-    "struct_name":"stub{{`{{toCamelCase .ServiceName}}`}}Service"
+    "interface_name":"Service",
+    "struct_name":"basicService"
   },
   "middleware":{
     "name":"middleware.go"
   },
   "endpoints":{
-    "path":"{{`{{toSnakeCase .ServiceName}}`}}{{fileSeparator}}pkg{{fileSeparator}}endpoints",
-    "file_name":"endpoints.go"
+    "path":"{{`{{toSnakeCase .ServiceName}}`}}{{fileSeparator}}pkg{{fileSeparator}}{{`{{toSnakeCase .ServiceName}}`}}endpoint",
+    "file_name":"set.go"
   },
-  "transport":{
-    "path":"{{`{{toSnakeCase .ServiceName}}`}}{{fileSeparator}}pkg{{fileSeparator}}{{`{{.TransportType}}`}}",
-    "file_name":"handler.go"
+  "httptransport":{
+    "path":"{{`{{toSnakeCase .ServiceName}}`}}{{fileSeparator}}pkg{{fileSeparator}}{{`{{toSnakeCase .ServiceName}}`}}transport",
+    "file_name":"http.go"
+  },
+  "grpctransport":{
+  "path":"{{`{{toSnakeCase .ServiceName}}`}}{{fileSeparator}}pkg{{fileSeparator}}{{`{{toSnakeCase .ServiceName}}`}}transport",
+  "file_name":"grpc.go"
+  },
+  "pb":{
+  "path":"{{`{{toSnakeCase .ServiceName}}`}}{{fileSeparator}}pb"
   },
   "cmd":{
    "path":"cmd{{fileSeparator}}{{`{{toSnakeCase .ServiceName}}`}}",

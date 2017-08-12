@@ -8,11 +8,11 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	"github.com/go-errors/errors"
-	"github.com/kujtimiihoxha/gk/fs"
-	"github.com/kujtimiihoxha/gk/parser"
-	"github.com/kujtimiihoxha/gk/templates"
-	"github.com/kujtimiihoxha/gk/utils"
 	"github.com/spf13/viper"
+	"github.com/yiv/gk/fs"
+	"github.com/yiv/gk/parser"
+	"github.com/yiv/gk/templates"
+	"github.com/yiv/gk/utils"
 	"golang.org/x/tools/imports"
 )
 
@@ -24,7 +24,7 @@ type ServiceGenerator struct {
 func (sg *ServiceGenerator) Generate(name string) error {
 	logrus.Info(fmt.Sprintf("Generating service: %s", name))
 	f := parser.NewFile()
-	f.Package = "service"
+	f.Package = fmt.Sprintf("%sservice", name)
 	te := template.NewEngine()
 	iname, err := te.ExecuteString(viper.GetString("service.interface_name"), map[string]string{
 		"ServiceName": name,
@@ -35,7 +35,8 @@ func (sg *ServiceGenerator) Generate(name string) error {
 	}
 	f.Interfaces = []parser.Interface{
 		parser.NewInterfaceWithComment(iname, `Implement yor service methods methods.
-		e.x: Foo(ctx context.Context,s string)(rs string, err error)`, []parser.Method{}),
+		e.x: Foo(ctx context.Context,bar
+		 string)(rs string, err error)`, []parser.Method{}),
 	}
 	defaultFs := fs.Get()
 
@@ -193,18 +194,18 @@ func (sg *ServiceInitGenerator) Generate(name string) error {
 			`Get a new instance of the service.
 			If you want to add service middleware this is the place to put them.`,
 			parser.NamedTypeValue{},
-			fmt.Sprintf(`s = &%s{}
+			fmt.Sprintf(`s = %s{}
 			return s`, stub.Name),
 			[]parser.NamedTypeValue{},
 			[]parser.NamedTypeValue{
-				parser.NewNameType("s", "*"+stubName),
+				parser.NewNameType("s", stubName),
 			},
 		)
 		s += "\n" + newMethod.String()
 	}
 	for _, m := range iface.Methods {
 		exists = false
-		m.Struct = parser.NewNameType(strings.ToLower(iface.Name[:2]), "*"+stub.Name)
+		m.Struct = parser.NewNameType(strings.ToLower(iface.Name[:1]), stub.Name)
 		for _, v := range f.Methods {
 			if v.Name == m.Name && v.Struct.Type == m.Struct.Type {
 				logrus.Infof("Service method `%s` already exists so it will not be recreated.", v.Name)
@@ -220,6 +221,7 @@ func (sg *ServiceInitGenerator) Generate(name string) error {
 	if err != nil {
 		return err
 	}
+	fmt.Println("edwin #33", string(d))
 	err = defaultFs.WriteFile(sfile, string(d), true)
 	if err != nil {
 		return err
@@ -254,7 +256,7 @@ func (sg *ServiceInitGenerator) generateHttpTransport(name string, iface *parser
 	te := template.NewEngine()
 	defaultFs := fs.Get()
 	handlerFile := parser.NewFile()
-	handlerFile.Package = "http"
+	handlerFile.Package = fmt.Sprintf("%stransport", name)
 	gosrc := utils.GetGOPATH() + "/src/"
 	gosrc = strings.Replace(gosrc, "\\", "/", -1)
 	pwd, err := os.Getwd()
@@ -286,7 +288,7 @@ func (sg *ServiceInitGenerator) generateHttpTransport(name string, iface *parser
 		parser.NamedTypeValue{},
 		"m := http.NewServeMux()",
 		[]parser.NamedTypeValue{
-			parser.NewNameType("endpoints", "endpoints.Endpoints"),
+			parser.NewNameType("endpoints", fmt.Sprintf("%sendpoint", name)+".Set"),
 		},
 		[]parser.NamedTypeValue{
 			parser.NewNameType("", "http.Handler"),
@@ -335,7 +337,7 @@ func (sg *ServiceInitGenerator) generateHttpTransport(name string, iface *parser
     ))`, utils.ToLowerSnakeCase(m.Name), m.Name, m.Name, m.Name)
 	}
 	handlerFile.Methods[0].Body += "\n" + "return m"
-	path, err := te.ExecuteString(viper.GetString("transport.path"), map[string]string{
+	path, err := te.ExecuteString(viper.GetString("httptransport.path"), map[string]string{
 		"ServiceName":   name,
 		"TransportType": "http",
 	})
@@ -346,7 +348,7 @@ func (sg *ServiceInitGenerator) generateHttpTransport(name string, iface *parser
 	if err != nil {
 		return err
 	}
-	fname, err := te.ExecuteString(viper.GetString("transport.file_name"), map[string]string{
+	fname, err := te.ExecuteString(viper.GetString("httptransport.file_name"), map[string]string{
 		"ServiceName":   name,
 		"TransportType": "http",
 	})
@@ -354,6 +356,7 @@ func (sg *ServiceInitGenerator) generateHttpTransport(name string, iface *parser
 		return err
 	}
 	tfile := path + defaultFs.FilePathSeparator() + fname
+	fmt.Println("edwin #33", tfile)
 	if b {
 		fex, err := defaultFs.Exists(tfile)
 		if err != nil {
@@ -384,25 +387,28 @@ func (sg *ServiceInitGenerator) generateGRPCTransport(name string, iface *parser
 	for _, v := range iface.Methods {
 		mthds = append(mthds, map[string]string{
 			"Name":    v.Name,
-			"Request": v.Name + "Request",
-			"Reply":   v.Name + "Reply",
+			"Request": v.Name + "Req",
+			"Reply":   v.Name + "Res",
 		})
 	}
 	model["Methods"] = mthds
-	path, err := te.ExecuteString(viper.GetString("transport.path"), map[string]string{
-		"ServiceName":   name,
-		"TransportType": "grpc",
+	path, err := te.ExecuteString(viper.GetString("pb.path"), map[string]string{
+		"ServiceName": name,
+		//"TransportType": "grpc",
 	})
-	path += defaultFs.FilePathSeparator() + "pb"
-	if err != nil {
-		return err
-	}
+	//path += defaultFs.FilePathSeparator() + "pb"
+	//if err != nil {
+	//	return err
+	//}
 	b, err := defaultFs.Exists(path)
 	if err != nil {
 		return err
 	}
 	fname := utils.ToLowerSnakeCase(name)
 	tfile := path + defaultFs.FilePathSeparator() + fname + ".proto"
+	fmt.Println("edwin #33", path)
+	fmt.Println("edwin #33", fname)
+	fmt.Println("edwin #33", defaultFs.FilePathSeparator())
 	if b {
 		fex, err := defaultFs.Exists(tfile)
 		if err != nil {
@@ -599,11 +605,13 @@ func (sg *ServiceInitGenerator) generateEndpoints(name string, iface *parser.Int
 		}
 	}
 	file := parser.NewFile()
-	file.Package = "endpoints"
+	// add package name
+	file.Package = fmt.Sprintf("%sendpoint", name)
+	// add endpoint set struct
 	file.Structs = []parser.Struct{
 		parser.NewStructWithComment(
-			"Endpoints",
-			`Endpoints collects all of the endpoints that compose an add service. It's
+			"Set",
+			`Set collects all of the endpoints that compose an add service. It's
 				meant to be used as a helper struct, to collect all of the endpoints into a
 				single parameter.`,
 			[]parser.NamedTypeValue{}),
@@ -627,24 +635,43 @@ func (sg *ServiceInitGenerator) generateEndpoints(name string, iface *parser.Int
 	}
 	servicePath = strings.Replace(servicePath, "\\", "/", -1)
 	serviceImport := projectPath + "/" + servicePath
+
+	//add import
 	file.Imports = []parser.NamedTypeValue{
-		parser.NewNameType("", "\""+serviceImport+"\""),
+		parser.NewNameType("stdopentracing", "\"github.com/opentracing/opentracing-go\""),
+		parser.NewNameType("stdjwt", "\"github.com/dgrijalva/jwt-go\"\n"),
+		parser.NewNameType("", "\"github.com/go-kit/kit/log\""),
+		parser.NewNameType("", "\"github.com/go-kit/kit/tracing/opentracing\""),
+		parser.NewNameType("", "\"github.com/go-kit/kit/metrics\""),
+		parser.NewNameType("", "\"github.com/go-kit/kit/auth/jwt\"\n"),
+		parser.NewNameType("", "\""+serviceImport+"\"\n"),
 	}
+
+	//add set create method
 	file.Methods = []parser.Method{
 		parser.NewMethod(
 			"New",
 			parser.NamedTypeValue{},
-			"",
+			fmt.Sprintf(`
+			kf := func(token *stdjwt.Token) (interface{}, error) {
+				return []byte(%sservice.JwtHmacSecret), nil
+			}
+			claimsFactory := func() stdjwt.Claims {
+				return &stdjwt.MapClaims{}
+			}`, name),
 			[]parser.NamedTypeValue{
-				parser.NewNameType("svc", "service."+iface.Name),
+				parser.NewNameType("svc", fmt.Sprintf("%sservice", name)+"."+iface.Name),
+				parser.NewNameType("logger", "log.Logger"),
+				parser.NewNameType("duration", "metrics.Histogram"),
+				parser.NewNameType("trace", "stdopentracing.Tracer"),
 			},
 			[]parser.NamedTypeValue{
-				parser.NewNameType("ep", "Endpoints"),
+				parser.NewNameType("set", "Set"),
 			},
 		),
 	}
 
-	for i, v := range iface.Methods {
+	for _, v := range iface.Methods {
 		file.Structs[0].Vars = append(file.Structs[0].Vars, parser.NewNameType(v.Name+"Endpoint", "endpoint.Endpoint"))
 		reqPrams := []parser.NamedTypeValue{}
 		for _, p := range v.Parameters {
@@ -658,8 +685,8 @@ func (sg *ServiceInitGenerator) generateEndpoints(name string, iface *parser.Int
 			n := strings.ToUpper(string(p.Name[0])) + p.Name[1:]
 			resultPrams = append(resultPrams, parser.NewNameType(n, p.Type))
 		}
-		req := parser.NewStruct(v.Name+"Request", reqPrams)
-		res := parser.NewStruct(v.Name+"Response", resultPrams)
+		req := parser.NewStruct(v.Name+"Req", reqPrams)
+		res := parser.NewStruct(v.Name+"Res", resultPrams)
 		file.Structs = append(file.Structs, req)
 		file.Structs = append(file.Structs, res)
 		tmplModel := map[string]interface{}{
@@ -671,6 +698,7 @@ func (sg *ServiceInitGenerator) generateEndpoints(name string, iface *parser.Int
 		if err != nil {
 			return err
 		}
+		// add endpoint maker method
 		file.Methods = append(file.Methods, parser.NewMethodWithComment(
 			"Make"+v.Name+"Endpoint",
 			fmt.Sprintf(`Make%sEndpoint returns an endpoint that invokes %s on the service.
@@ -678,15 +706,49 @@ func (sg *ServiceInitGenerator) generateEndpoints(name string, iface *parser.Int
 			parser.NamedTypeValue{},
 			tRes,
 			[]parser.NamedTypeValue{
-				parser.NewNameType("svc", "service."+iface.Name),
+				parser.NewNameType("svc", fmt.Sprintf("%sservice", name)+"."+iface.Name),
 			},
 			[]parser.NamedTypeValue{
 				parser.NewNameType("ep", "endpoint.Endpoint"),
 			},
 		))
-		file.Methods[0].Body += "\n" + "ep." + file.Structs[0].Vars[i].Name + " = Make" + v.Name + "Endpoint(svc)"
+		// add interface method
+		file.Methods = append(file.Methods, parser.NewMethod(
+			v.Name,
+			parser.NewNameType("s", "Set"),
+			"",
+			[]parser.NamedTypeValue{
+				parser.NewNameType("ctx", "context.Context"),
+			},
+			[]parser.NamedTypeValue{
+				parser.NewNameType("err", "error"),
+			},
+		))
+		file.Methods[0].Body += fmt.Sprintf(`
+		var %sEndpoint endpoint.Endpoint
+		{
+			method := "%s"
+			%sEndpoint = Make%sEndpoint(svc)
+			%sEndpoint = opentracing.TraceServer(trace, method)(%sEndpoint)
+			%sEndpoint = LoggingMiddleware(log.With(logger, "method", method))(%sEndpoint)
+			%sEndpoint = InstrumentingMiddleware(duration.With("method", method))(%sEndpoint)
+			%sEndpoint = jwt.NewParser(kf, stdjwt.SigningMethodHS256, claimsFactory)(%sEndpoint)
+		}
+		`, utils.ToLowerFirstCamelCase(v.Name),
+			utils.ToLowerFirstCamelCase(v.Name),
+			utils.ToLowerFirstCamelCase(v.Name),
+			utils.ToUpperFirstCamelCase(v.Name),
+			utils.ToLowerFirstCamelCase(v.Name),
+			utils.ToLowerFirstCamelCase(v.Name),
+			utils.ToLowerFirstCamelCase(v.Name),
+			utils.ToLowerFirstCamelCase(v.Name),
+			utils.ToLowerFirstCamelCase(v.Name),
+			utils.ToLowerFirstCamelCase(v.Name),
+			utils.ToLowerFirstCamelCase(v.Name),
+			utils.ToLowerFirstCamelCase(v.Name))
+
 	}
-	file.Methods[0].Body += "\n return ep"
+	file.Methods[0].Body += "\n return set"
 	return defaultFs.WriteFile(eFile, file.String(), false)
 }
 func NewServiceInitGenerator() *ServiceInitGenerator {
@@ -772,14 +834,13 @@ func (sg *GRPCInitGenerator) Generate(name string) error {
 	if len(iface.Methods) == 0 {
 		return errors.New("The service has no method please implement the interface methods")
 	}
-	path, err = te.ExecuteString(viper.GetString("transport.path"), map[string]string{
-		"ServiceName":   name,
-		"TransportType": "grpc",
+	path, err = te.ExecuteString(viper.GetString("pb.path"), map[string]string{
+		"ServiceName": name,
 	})
 	if err != nil {
 		return err
 	}
-	sfile = path + defaultFs.FilePathSeparator() + "pb" + defaultFs.FilePathSeparator() + utils.ToLowerSnakeCase(name) + ".pb.go"
+	sfile = path + defaultFs.FilePathSeparator() + utils.ToLowerSnakeCase(name) + ".pb.go"
 	b, err = defaultFs.Exists(sfile)
 	if err != nil {
 		return err
@@ -798,7 +859,7 @@ func (sg *GRPCInitGenerator) Generate(name string) error {
 	}
 	pwd = strings.Replace(pwd, "\\", "/", -1)
 	projectPath := strings.Replace(pwd, gosrc, "", 1)
-	pbImport := projectPath + "/" + path + defaultFs.FilePathSeparator() + "pb"
+	pbImport := projectPath + "/" + path
 	pbImport = strings.Replace(pbImport, "\\", "/", -1)
 	enpointsPath, err := te.ExecuteString(viper.GetString("endpoints.path"), map[string]string{
 		"ServiceName": name,
@@ -809,44 +870,76 @@ func (sg *GRPCInitGenerator) Generate(name string) error {
 	enpointsPath = strings.Replace(enpointsPath, "\\", "/", -1)
 	endpointsImport := projectPath + "/" + enpointsPath
 	handler := parser.NewFile()
-	handler.Package = "grpc"
+	handler.Package = fmt.Sprintf("%stransport", name)
 	handler.Imports = []parser.NamedTypeValue{
-		parser.NewNameType("oldcontext", "\"golang.org/x/net/context\""),
 		parser.NewNameType("", "\"context\""),
-		parser.NewNameType("", "\"errors\""),
+		parser.NewNameType("", "\"errors\"\n"),
+		parser.NewNameType("stdopentracing", "\"github.com/opentracing/opentracing-go\""),
+		parser.NewNameType("", "\"google.golang.org/grpc\""),
+		parser.NewNameType("jujuratelimit", "\"github.com/juju/ratelimit\""),
+		parser.NewNameType("oldcontext", "\"golang.org/x/net/context\"\n"),
+		parser.NewNameType("grpctransport", "\"github.com/go-kit/kit/transport/grpc\""),
+		parser.NewNameType("", "\"github.com/go-kit/kit/ratelimit\""),
+		parser.NewNameType("", "\"github.com/go-kit/kit/tracing/opentracing\""),
+		parser.NewNameType("", "\"github.com/go-kit/kit/endpoint\""),
+		parser.NewNameType("", "\"github.com/go-kit/kit/auth/jwt\""),
+		parser.NewNameType("", "\"github.com/go-kit/kit/log\"\n"),
 		parser.NewNameType("", fmt.Sprintf("\"%s\"", pbImport)),
 		parser.NewNameType("", fmt.Sprintf("\"%s\"", endpointsImport)),
-		parser.NewNameType("grpctransport", "\"github.com/go-kit/kit/transport/grpc\""),
 	}
 	grpcStruct := parser.NewStruct("grpcServer", []parser.NamedTypeValue{})
+	//NewGRPCServer
 	handler.Methods = append(handler.Methods, parser.NewMethodWithComment(
-		"MakeGRPCServer",
-		`MakeGRPCServer makes a set of endpoints available as a gRPC server.`,
+		"NewGRPCServer",
+		`NewGRPCServer makes a set of endpoints available as a gRPC server.`,
 		parser.NamedTypeValue{},
-		`req = &grpcServer{`,
+		`options := []grpctransport.ServerOption{
+			grpctransport.ServerErrorLogger(logger),
+		}
+		req = &grpcServer{`,
 		[]parser.NamedTypeValue{
-			parser.NewNameType("endpoints", "endpoints.Endpoints"),
+			parser.NewNameType("endpoints", fmt.Sprintf("%sendpoint.Set", name)),
+			parser.NewNameType("tracer", "stdopentracing.Tracer"),
+			parser.NewNameType("logger", "log.Logger"),
 		},
 		[]parser.NamedTypeValue{
 			parser.NewNameType("req", fmt.Sprintf("pb.%sServer", utils.ToUpperFirstCamelCase(name))),
 		},
 	))
+	//NewGRPCClient
+	handler.Methods = append(handler.Methods, parser.NewMethodWithComment(
+		"NewGRPCClient",
+		`NewGRPCClient makes a set of endpoints available as a gRPC client.`,
+		parser.NamedTypeValue{},
+		fmt.Sprintf(`
+		set := %sendpoint.Set{}
+		limiter := ratelimit.NewTokenBucketLimiter(jujuratelimit.NewBucketWithRate(100,100))
+		`, name),
+		[]parser.NamedTypeValue{
+			parser.NewNameType("conn", "*grpc.ClientConn"),
+			parser.NewNameType("tracer", "stdopentracing.Tracer"),
+			parser.NewNameType("logger", "log.Logger"),
+		},
+		[]parser.NamedTypeValue{
+			parser.NewNameType("", fmt.Sprintf("%sservice.Service", utils.ToLowerFirstCamelCase(name))),
+		},
+	))
 	for _, v := range iface.Methods {
+		//add member to grpcServer
 		grpcStruct.Vars = append(grpcStruct.Vars, parser.NewNameType(
 			utils.ToLowerFirstCamelCase(v.Name),
 			"grpctransport.Handler",
 		))
+		// add server side request decoder
 		handler.Methods = append(handler.Methods, parser.NewMethodWithComment(
-			"DecodeGRPC"+v.Name+"Request",
+			"decodeGRPC"+v.Name+"Req",
 			fmt.Sprintf(
 				`DecodeGRPC%sRequest is a transport/grpc.DecodeRequestFunc that converts a
-				gRPC request to a user-domain request. Primarily useful in a server.
-				TODO: Do not forget to implement the decoder, you can find an example here :
-				https://github.com/go-kit/kit/blob/master/examples/addsvc/transport_grpc.go#L62-L65`,
+				gRPC request to a user-domain request. Primarily useful in a server.`,
 				v.Name,
 			),
 			parser.NamedTypeValue{},
-			fmt.Sprintf(`err = errors.New("'%s' Decoder is not impelement")
+			fmt.Sprintf(`r := grpcReq.(*pb.%sReq)
 			return req, err`, v.Name),
 			[]parser.NamedTypeValue{
 				parser.NewNameType("_", "context.Context"),
@@ -857,18 +950,57 @@ func (sg *GRPCInitGenerator) Generate(name string) error {
 				parser.NewNameType("err", "error"),
 			},
 		))
+		// add server side response encoder
 		handler.Methods = append(handler.Methods, parser.NewMethodWithComment(
-			"EncodeGRPC"+v.Name+"Response",
+			"encodeGRPC"+v.Name+"Res",
 			fmt.Sprintf(
 				`EncodeGRPC%sResponse is a transport/grpc.EncodeResponseFunc that converts a
-					user-domain response to a gRPC reply. Primarily useful in a server.
-					TODO: Do not forget to implement the encoder, you can find an example here :
-					https://github.com/go-kit/kit/blob/master/examples/addsvc/transport_grpc.go#L62-L65`,
+					user-domain response to a gRPC reply. Primarily useful in a server.`,
 				v.Name,
 			),
 			parser.NamedTypeValue{},
-			fmt.Sprintf(`err = errors.New("'%s' Encoder is not impelement")
-			return res, err`, v.Name),
+			fmt.Sprintf(`r := response.(%sendpoint.%sRes)
+			return res, err`, name, v.Name),
+			[]parser.NamedTypeValue{
+				parser.NewNameType("_", "context.Context"),
+				parser.NewNameType("response", "interface{}"),
+			},
+			[]parser.NamedTypeValue{
+				parser.NewNameType("res", "interface{}"),
+				parser.NewNameType("err", "error"),
+			},
+		))
+		// add client side request encoder
+		handler.Methods = append(handler.Methods, parser.NewMethodWithComment(
+			"encodeGRPC"+v.Name+"Req",
+			fmt.Sprintf(
+				`encodeGRPC%Req s a transport/grpc.EncodeRequestFunc that converts a
+				 user-domain sum request to a gRPC sum request. Primarily useful in a client.`,
+				v.Name,
+			),
+			parser.NamedTypeValue{},
+			fmt.Sprintf(`r := request.(%sendpoint.%sReq)
+			return req, err`, name, v.Name),
+			[]parser.NamedTypeValue{
+				parser.NewNameType("_", "context.Context"),
+				parser.NewNameType("request", "interface{}"),
+			},
+			[]parser.NamedTypeValue{
+				parser.NewNameType("req", "interface{}"),
+				parser.NewNameType("err", "error"),
+			},
+		))
+		// add client side response decoder
+		handler.Methods = append(handler.Methods, parser.NewMethodWithComment(
+			"decodeGRPC"+v.Name+"Res",
+			fmt.Sprintf(
+				`decodeGRPC%Res is a transport/grpc.DecodeResponseFunc that converts a
+				 gRPC sum reply to a user-domain sum response. Primarily useful in a client.`,
+				v.Name,
+			),
+			parser.NamedTypeValue{},
+			fmt.Sprintf(`r := grpcReply.(*pb.%sRes)
+			return res, err`, utils.ToUpperFirstCamelCase(v.Name)),
 			[]parser.NamedTypeValue{
 				parser.NewNameType("_", "context.Context"),
 				parser.NewNameType("grpcReply", "interface{}"),
@@ -878,6 +1010,7 @@ func (sg *GRPCInitGenerator) Generate(name string) error {
 				parser.NewNameType("err", "error"),
 			},
 		))
+		//add interface method
 		handler.Methods = append(handler.Methods, parser.NewMethod(
 			v.Name,
 			parser.NewNameType("s", "*grpcServer"),
@@ -886,33 +1019,78 @@ func (sg *GRPCInitGenerator) Generate(name string) error {
 					if err != nil {
 						return nil, err
 					}
-					rep = rp.(*pb.%sReply)
+					rep = rp.(*pb.%sRes)
 					return rep, err`,
 				utils.ToLowerFirstCamelCase(v.Name),
 				v.Name,
 			),
 			[]parser.NamedTypeValue{
 				parser.NewNameType("ctx", "oldcontext.Context"),
-				parser.NewNameType("req", fmt.Sprintf("*pb.%sRequest", v.Name)),
+				parser.NewNameType("req", fmt.Sprintf("*pb.%sReq", v.Name)),
 			},
 			[]parser.NamedTypeValue{
-				parser.NewNameType("rep", fmt.Sprintf("*pb.%sReply", v.Name)),
+				parser.NewNameType("rep", fmt.Sprintf("*pb.%sRes", v.Name)),
 				parser.NewNameType("err", "error"),
 			},
 		))
+		//init grpcServer method
 		handler.Methods[0].Body += "\n" + fmt.Sprintf(`%s : grpctransport.NewServer(
 			endpoints.%sEndpoint,
-			DecodeGRPC%sRequest,
-			EncodeGRPC%sResponse,
+			decodeGRPC%sReq,
+			encodeGRPC%sRes,
+			append(
+				options,
+				grpctransport.ServerBefore(opentracing.GRPCToContext(tracer, "%s", logger)),
+				grpctransport.ServerBefore(jwt.GRPCToContext()),
+			)...,
 		),
-		`, utils.ToLowerFirstCamelCase(v.Name), v.Name, v.Name, v.Name)
+		`, utils.ToLowerFirstCamelCase(v.Name), v.Name, v.Name, v.Name, v.Name)
+		//init grpcServer method
+		handler.Methods[1].Body += "\n" + fmt.Sprintf(`
+			var %sEndpoint endpoint.Endpoint
+			{
+				%sEndpoint = grpctransport.NewClient(
+					conn,
+					"pb.%s",
+					"%s",
+					encodeGRPC%sReq,
+					decodeGRPC%sRes,
+					pb.%sRes{},
+					grpctransport.ClientBefore(opentracing.ContextToGRPC(tracer, logger)),
+					grpctransport.ClientBefore(jwt.ContextToGRPC()),
+				).Endpoint()
+				%sEndpoint = opentracing.TraceClient(tracer, "%s")(%sEndpoint)
+				%sEndpoint = limiter(%sEndpoint)
+				set.%sEndpoint = %sEndpoint
+			}
+		`, utils.ToLowerFirstCamelCase(v.Name),
+			utils.ToLowerFirstCamelCase(v.Name),
+			utils.ToUpperFirstCamelCase(name),
+			v.Name, v.Name, v.Name, v.Name,
+			utils.ToLowerFirstCamelCase(v.Name),
+			utils.ToLowerFirstCamelCase(v.Name),
+			utils.ToLowerFirstCamelCase(v.Name),
+			utils.ToLowerFirstCamelCase(v.Name),
+			utils.ToLowerFirstCamelCase(v.Name),
+			v.Name,
+			utils.ToLowerFirstCamelCase(v.Name))
 	}
+	//close NewGRPCServer
 	handler.Methods[0].Body += `}
 	return req`
+	//close NewGRPCClient
+	handler.Methods[1].Body += `
+	return set`
+
 	handler.Structs = append(handler.Structs, grpcStruct)
-	fname, err = te.ExecuteString(viper.GetString("transport.file_name"), map[string]string{
-		"ServiceName":   name,
-		"TransportType": "http",
+	path, err = te.ExecuteString(viper.GetString("grpctransport.path"), map[string]string{
+		"ServiceName": name,
+	})
+	if err != nil {
+		return err
+	}
+	fname, err = te.ExecuteString(viper.GetString("grpctransport.file_name"), map[string]string{
+		"ServiceName": name,
 	})
 	if err != nil {
 		return err

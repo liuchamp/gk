@@ -6,7 +6,7 @@ import (
 	"net/http"
 
 	httptransport "github.com/go-kit/kit/transport/http"
-	"github.com/kujtimiihoxha/gk/test_dir/test_http/pkg/endpoints"
+	"github.com/yiv/gk/test_dir/test_http/pkg/endpoints"
 )
 
 // NewHTTPHandler returns a handler that makes a set of endpoints available on

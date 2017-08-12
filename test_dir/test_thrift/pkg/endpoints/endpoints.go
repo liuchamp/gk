@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/go-kit/kit/endpoint"
-	"github.com/kujtimiihoxha/gk/test_dir/test_thrift/pkg/service"
+	"github.com/yiv/gk/test_dir/test_thrift/pkg/service"
 )
 
 // Endpoints collects all of the endpoints that compose an add service. It's

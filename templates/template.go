@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/Sirupsen/logrus"
-	"github.com/kujtimiihoxha/gk/utils"
+	"github.com/yiv/gk/utils"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -84,6 +84,7 @@ func (e *DefaultEngine) Execute(name string, model interface{}) (string, error) 
 	}
 	ret := bytes.NewBufferString("")
 	err = tmp.Execute(ret, model)
+	fmt.Println("edwin #33", ret.String())
 	return ret.String(), err
 }
 func (e *DefaultEngine) ExecuteString(data string, model interface{}) (string, error) {

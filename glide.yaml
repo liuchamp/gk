@@ -1,4 +1,4 @@
-package: github.com/kujtimiihoxha/gk
+package: github.com/yiv/gk
 import:
 - package: github.com/spf13/cobra
 - package: github.com/Sirupsen/logrus

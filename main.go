@@ -2,8 +2,8 @@ package main
 
 import (
 	"github.com/Sirupsen/logrus"
-	"github.com/kujtimiihoxha/gk/cmd"
-	"github.com/kujtimiihoxha/gk/utils"
+	"github.com/yiv/gk/cmd"
+	"github.com/yiv/gk/utils"
 	"github.com/spf13/afero"
 	"github.com/spf13/viper"
 	"os"

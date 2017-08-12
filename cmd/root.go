@@ -4,8 +4,8 @@ import (
 	"os"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/kujtimiihoxha/gk/fs"
-	"github.com/kujtimiihoxha/gk/templates"
+	"github.com/yiv/gk/fs"
+	"github.com/yiv/gk/templates"
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"

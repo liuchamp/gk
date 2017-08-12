@@ -5,8 +5,8 @@ import (
 	"errors"
 
 	grpctransport "github.com/go-kit/kit/transport/grpc"
-	"github.com/kujtimiihoxha/gk/test_dir/test_grpc/pkg/endpoints"
-	"github.com/kujtimiihoxha/gk/test_dir/test_grpc/pkg/grpc/pb"
+	"github.com/yiv/gk/test_dir/test_grpc/pkg/endpoints"
+	"github.com/yiv/gk/test_dir/test_grpc/pkg/grpc/pb"
 	oldcontext "golang.org/x/net/context"
 )
 
