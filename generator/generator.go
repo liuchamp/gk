@@ -221,7 +221,6 @@ func (sg *ServiceInitGenerator) Generate(name string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Println("edwin #33", string(d))
 	err = defaultFs.WriteFile(sfile, string(d), true)
 	if err != nil {
 		return err
@@ -356,7 +355,6 @@ func (sg *ServiceInitGenerator) generateHttpTransport(name string, iface *parser
 		return err
 	}
 	tfile := path + defaultFs.FilePathSeparator() + fname
-	fmt.Println("edwin #33", tfile)
 	if b {
 		fex, err := defaultFs.Exists(tfile)
 		if err != nil {
@@ -406,9 +404,6 @@ func (sg *ServiceInitGenerator) generateGRPCTransport(name string, iface *parser
 	}
 	fname := utils.ToLowerSnakeCase(name)
 	tfile := path + defaultFs.FilePathSeparator() + fname + ".proto"
-	fmt.Println("edwin #33", path)
-	fmt.Println("edwin #33", fname)
-	fmt.Println("edwin #33", defaultFs.FilePathSeparator())
 	if b {
 		fex, err := defaultFs.Exists(tfile)
 		if err != nil {
