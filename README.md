@@ -200,7 +200,6 @@ You can find examples under the `test_dir`
 
  - Implement the update commands, this commands would be used to update an existing service e.x add 
  a new request parameter to an endpoint(Probably not needed).
- - Implement middleware generator (service,endpoint).
  - Implement automatic creation of the service main file.
  - Tests tests tests ...
 ## Warnings
