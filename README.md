@@ -30,8 +30,7 @@ gk n s hello
 ```
 运行本命令会生成一个 `helloservice` :
 ```
-project/
-├── gk.json
+./
 └── hello
     └── pkg
         └── helloservice
@@ -63,7 +62,6 @@ gk init hello
 运行这个命令后会新增如下代码文件 
 ```
 .
-├── gk.json
 └── hello
     └── pkg
         ├── helloendpoint
@@ -104,7 +102,6 @@ WARN[0000] --------------------------------------------------------------------
 此时的代码目录结构是这样的：
 ```
 .
-├── gk.json
 └── hello
     ├── pb
     │   ├── compile.bat
@@ -128,11 +125,9 @@ gk init grpc hello
 下面是完成后的目录结果
 ```
 .
-├── gk.json
 └── hello
     ├── pb
     │   ├── compile.bat
-    │   ├── gk.json
     │   ├── hello.pb.go
     │   └── hello.proto
     └── pkg
