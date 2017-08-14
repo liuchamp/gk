@@ -43,7 +43,7 @@ project/
 package service
 // Implement yor service methods methods.
 // e.x: Foo(ctx context.Context,s string)(rs string,err error)
-type HelloService interface {
+type Service interface {
 }
 ```
 Now you need to add the interface methods and initiate your service:
@@ -78,7 +78,7 @@ gk init hello
 ```
 
 
-The final folder structure is the same as  [addsvc](https://github.com/peterbourgon/go-microservices/tree/master/addsvc) 
+
 By Default the generator will use `default_transport` setting from `gk.json` and create the transport. If you want to specify
 the transport use `-t` flag
 ```bash
@@ -124,6 +124,7 @@ WARN[0000] --------------------------------------------------------------------
 ```bash
 gk init grpc hello
 ```
+最终生成的代码结构跟go-kit的官方示例[addsvc](https://github.com/go-kit/kit/tree/master/examples/addsvc) 相同，不同之外在于我将service的middleware.go文件拆分成了两个文件，分别是instrumenting.go和logging.go
 下面是完成后的目录结果
 ```
 .
