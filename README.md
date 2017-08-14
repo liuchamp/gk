@@ -62,13 +62,16 @@ gk init hello
 ```
 运行这个命令后会新增如下代码文件 
 ```
-project/
+.
 ├── gk.json
 └── hello
     └── pkg
         ├── helloendpoint
+        │   ├── middleware.go
         │   └── set.go
         ├── helloservice
+        │   ├── instrumenting.go
+        │   ├── logging.go
         │   └── service.go
         └── hellotransport
             └── http.go
@@ -100,7 +103,7 @@ WARN[0000] --------------------------------------------------------------------
 ```
 此时的代码目录结构是这样的：
 ```
-project/
+.
 ├── gk.json
 └── hello
     ├── pb
@@ -108,8 +111,11 @@ project/
     │   └── hello.proto
     └── pkg
         ├── helloendpoint
+        │   ├── middleware.go
         │   └── set.go
         ├── helloservice
+        │   ├── instrumenting.go
+        │   ├── logging.go
         │   └── service.go
         └── hellotransport
             └── http.go
@@ -120,7 +126,7 @@ gk init grpc hello
 ```
 下面是完成后的目录结果
 ```
-project/
+.
 ├── gk.json
 └── hello
     ├── pb
@@ -129,11 +135,13 @@ project/
     │   └── hello.proto
     └── pkg
         ├── helloendpoint
+        │   ├── middleware.go
         │   └── set.go
         ├── helloservice
+        │   ├── instrumenting.go
+        │   ├── logging.go
         │   └── service.go
         └── hellotransport
-            ├── grpc.go
             └── http.go
 ```
 下面是原项目的代码布局：
