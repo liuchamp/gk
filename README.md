@@ -132,6 +132,7 @@ gk init grpc hello
 └── hello
     ├── pb
     │   ├── compile.bat
+    │   ├── gk.json
     │   ├── hello.pb.go
     │   └── hello.proto
     └── pkg
@@ -143,6 +144,7 @@ gk init grpc hello
         │   ├── logging.go
         │   └── service.go
         └── hellotransport
+            ├── grpc.go
             └── http.go
 ```
 下面是原项目的代码布局：
