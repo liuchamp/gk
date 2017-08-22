@@ -35,8 +35,7 @@ func (sg *ServiceGenerator) Generate(name string) error {
 	}
 	f.Interfaces = []parser.Interface{
 		parser.NewInterfaceWithComment(iname, `Implement yor service methods methods.
-		e.x: Foo(ctx context.Context,bar
-		 string)(rs string, err error)`, []parser.Method{}),
+		e.x: Foo(ctx context.Context,bar string)(rs string, err error)`, []parser.Method{}),
 	}
 	defaultFs := fs.Get()
 
@@ -194,11 +193,14 @@ func (sg *ServiceInitGenerator) Generate(name string) error {
 			`Get a new instance of the service.
 			If you want to add service middleware this is the place to put them.`,
 			parser.NamedTypeValue{},
-			fmt.Sprintf(`s = %s{}
-			return s`, stub.Name),
-			[]parser.NamedTypeValue{},
+			fmt.Sprintf(`svc = %s{}
+			return svc,nil`, stub.Name),
 			[]parser.NamedTypeValue{
-				parser.NewNameType("s", "Service"),
+				parser.NewNameType("logger", "log.Logger"),
+			},
+			[]parser.NamedTypeValue{
+				parser.NewNameType("svc", "Service"),
+				parser.NewNameType("err", "error"),
 			},
 		)
 		s += "\n" + newMethod.String()
@@ -213,6 +215,7 @@ func (sg *ServiceInitGenerator) Generate(name string) error {
 			}
 		}
 		m.Comment = fmt.Sprintf(`// Implement the business logic of %s`, m.Name)
+		m.Body = fmt.Sprintf("To-do")
 		if !exists {
 			s += "\n" + m.String()
 		}
@@ -285,64 +288,136 @@ func (sg *ServiceInitGenerator) generateHttpTransport(name string, iface *parser
 	enpointsPath = strings.Replace(enpointsPath, "\\", "/", -1)
 	endpointsImport := projectPath + "/" + enpointsPath
 	handlerFile.Imports = []parser.NamedTypeValue{
-		parser.NewNameType("httptransport", "\"github.com/go-kit/kit/transport/http\""),
+		parser.NewNameType("stdopentracing", "\"github.com/opentracing/opentracing-go\"\n"),
+		parser.NewNameType("", "\"github.com/go-kit/kit/log\""),
+		parser.NewNameType("", "\"github.com/go-kit/kit/auth/jwt\""),
+		parser.NewNameType("", "\"github.com/go-kit/kit/tracing/opentracing\""),
+		parser.NewNameType("httptransport", "\"github.com/go-kit/kit/transport/http\"\n"),
 		parser.NewNameType("", "\""+endpointsImport+"\""),
 	}
 
-	handlerFile.Methods = append(handlerFile.Methods, parser.NewMethodWithComment(
-		"NewHTTPHandler",
-		`NewHTTPHandler returns a handler that makes a set of endpoints available on
+	handlerFile.Methods = append(handlerFile.Methods,
+		parser.NewMethodWithComment(
+			"NewHTTPHandler",
+			`NewHTTPHandler returns a handler that makes a set of endpoints available on
 			 predefined paths.`,
-		parser.NamedTypeValue{},
-		"m := http.NewServeMux()",
-		[]parser.NamedTypeValue{
-			parser.NewNameType("endpoints", fmt.Sprintf("%sendpoint", name)+".Set"),
-		},
-		[]parser.NamedTypeValue{
-			parser.NewNameType("", "http.Handler"),
-		},
-	))
+			parser.NamedTypeValue{},
+			`m := http.NewServeMux()
+			options := []httptransport.ServerOption{
+			httptransport.ServerErrorEncoder(errorEncoder),
+			httptransport.ServerErrorLogger(logger),
+		}
+		`,
+			[]parser.NamedTypeValue{
+				parser.NewNameType("endpoints", fmt.Sprintf("%sendpoint", name)+".Set"),
+				parser.NewNameType("tracer", "stdopentracing.Tracer"),
+				parser.NewNameType("logger", "log.Logger"),
+			},
+			[]parser.NamedTypeValue{
+				parser.NewNameType("", "http.Handler"),
+			},
+		),
+		parser.NewMethodWithComment(
+			"encodeHTTPGenericResponse",
+			`encodeHTTPGenericResponse`,
+			parser.NamedTypeValue{},
+			`s, err := json.Marshal(response)
+			 d := RC4Crypt(s)
+			 w.Write(d)
+			 return err`,
+			[]parser.NamedTypeValue{
+				parser.NewNameType("ctx", "context.Context"),
+				parser.NewNameType("w", "http.ResponseWriter"),
+				parser.NewNameType("response", "interface{}"),
+			},
+			[]parser.NamedTypeValue{
+				parser.NewNameType("", "error"),
+			},
+		),
+		parser.NewMethodWithComment(
+			"RC4Crypt",
+			`RC4Crypt`,
+			parser.NamedTypeValue{},
+			`key := []byte("xxxxxxxxxxxxxxxxxxxxxxx")
+			 c, _ := rc4.NewCipher(key)
+			 d := make([]byte, len(s))
+			 c.XORKeyStream(d, s)
+			 return d`,
+			[]parser.NamedTypeValue{
+				parser.NewNameType("s", "[]byte"),
+			},
+			[]parser.NamedTypeValue{
+				parser.NewNameType("", "[]byte"),
+			},
+		),
+		parser.NewMethodWithComment(
+			"errorEncoder",
+			`errorEncoder`,
+			parser.NamedTypeValue{},
+			`code := http.StatusInternalServerError
+			 msg := err.Error()
+			 switch err {
+			 default:
+			 	code = http.StatusInternalServerError
+			 }
+			 w.WriteHeader(code)
+			 s, err := json.Marshal(errorWrapper{Error: msg})
+			 d := RC4Crypt(s)
+			 w.Write(d)`,
+			[]parser.NamedTypeValue{
+				parser.NewNameType("_", "context.Context"),
+				parser.NewNameType("err", "error"),
+				parser.NewNameType("w", "http.ResponseWriter"),
+			},
+			[]parser.NamedTypeValue{},
+		),
+	)
 	for _, m := range iface.Methods {
 		handlerFile.Methods = append(handlerFile.Methods, parser.NewMethodWithComment(
-			fmt.Sprintf("Decode%sRequest", m.Name),
-			fmt.Sprintf(`Decode%sRequest is a transport/http.DecodeRequestFunc that decodes a
+			fmt.Sprintf("decodeHTTP%sReq", m.Name),
+			fmt.Sprintf(`decodeHTTP%sReq is a transport/http.DecodeRequestFunc that decodes a
 					 JSON-encoded request from the HTTP request body. Primarily useful in a server.`,
 				m.Name),
 			parser.NamedTypeValue{},
-			fmt.Sprintf(`req = %sendpoint.%sReq{}
-			err = json.NewDecoder(r.Body).Decode(&r)
-			return req,err`, name, m.Name),
+			fmt.Sprintf(`req := %sendpoint.%sReq{}
+			body, _ := ioutil.ReadAll(r.Body)
+			err := json.Unmarshal(RC4Crypt(body), &req)
+			return req, err`, name, m.Name),
 			[]parser.NamedTypeValue{
 				parser.NewNameType("_", "context.Context"),
 				parser.NewNameType("r", "*http.Request"),
 			},
 			[]parser.NamedTypeValue{
-				parser.NewNameType("req", "interface{}"),
-				parser.NewNameType("err", "error"),
+				parser.NewNameType("", "interface{}"),
+				parser.NewNameType("", "error"),
 			},
 		))
-		handlerFile.Methods = append(handlerFile.Methods, parser.NewMethodWithComment(
-			fmt.Sprintf("Encode%sResponse", m.Name),
-			fmt.Sprintf(`Encode%sResponse is a transport/http.EncodeResponseFunc that encodes
-				the response as JSON to the response writer. Primarily useful in a server.`, m.Name),
-			parser.NamedTypeValue{},
-			` w.Header().Set("Content-Type", "application/json; charset=utf-8")
-			err = json.NewEncoder(w).Encode(response)
-			return err`,
-			[]parser.NamedTypeValue{
-				parser.NewNameType("_", "context.Context"),
-				parser.NewNameType("w", "http.ResponseWriter"),
-				parser.NewNameType("response", "interface{}"),
-			},
-			[]parser.NamedTypeValue{
-				parser.NewNameType("err", "error"),
-			},
-		))
+		//handlerFile.Methods = append(handlerFile.Methods, parser.NewMethodWithComment(
+		//	fmt.Sprintf("encodeHTTP%sRes", m.Name),
+		//	fmt.Sprintf(`encodeHTTP%sRes is a transport/http.EncodeResponseFunc that encodes
+		//		the response as JSON to the response writer. Primarily useful in a server.`, m.Name),
+		//	parser.NamedTypeValue{},
+		//	` w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		//	err = json.NewEncoder(w).Encode(response)
+		//	return err`,
+		//	[]parser.NamedTypeValue{
+		//		parser.NewNameType("_", "context.Context"),
+		//		parser.NewNameType("w", "http.ResponseWriter"),
+		//		parser.NewNameType("response", "interface{}"),
+		//	},
+		//	[]parser.NamedTypeValue{
+		//		parser.NewNameType("err", "error"),
+		//	},
+		//))
 		handlerFile.Methods[0].Body += "\n" + fmt.Sprintf(`m.Handle("/%s", httptransport.NewServer(
         endpoints.%sEndpoint,
-        Decode%sRequest,
-        Encode%sResponse,
-    ))`, utils.ToLowerSnakeCase(m.Name), m.Name, m.Name, m.Name)
+        decodeHTTP%sReq,
+        encodeHTTPGenericResponse,
+        append(options,
+			httptransport.ServerBefore(opentracing.HTTPToContext(tracer, "%s", logger)),
+			httptransport.ServerBefore(jwt.HTTPToContext()),
+		)...,
+    ))`, utils.ToLowerFirstCamelCase(m.Name), m.Name, m.Name, utils.ToLowerFirstCamelCase(m.Name))
 	}
 	handlerFile.Methods[0].Body += "\n" + "return m"
 	path, err := te.ExecuteString(viper.GetString("httptransport.path"), map[string]string{
@@ -651,6 +726,17 @@ func (sg *ServiceInitGenerator) generateEndpoints(name string, iface *parser.Int
 		parser.NewNameType("", "\""+serviceImport+"\"\n"),
 	}
 
+	file.Interfaces = []parser.Interface{
+		parser.NewInterfaceWithComment("Failer",
+			`Failer is an interface that should be implemented by response types.
+ 			 Response encoders can check if responses are Failer, and if so if they've
+ 			 failed, and if so encode them using a separate write path based on the error.
+			`,
+			[]parser.Method{
+				parser.NewMethod("Failed", parser.NamedTypeValue{}, "", []parser.NamedTypeValue{}, []parser.NamedTypeValue{}),
+			}),
+	}
+
 	//add set create method
 	file.Methods = []parser.Method{
 		parser.NewMethod(
@@ -693,6 +779,18 @@ func (sg *ServiceInitGenerator) generateEndpoints(name string, iface *parser.Int
 		res := parser.NewStruct(v.Name+"Res", resultPrams)
 		file.Structs = append(file.Structs, req)
 		file.Structs = append(file.Structs, res)
+
+		//add Failer interface method for response
+		file.Methods = append(file.Methods, parser.NewMethod(
+			"Failed",
+			parser.NewNameType("r", v.Name+"Res"),
+			fmt.Sprintf(`return r.Err`),
+			[]parser.NamedTypeValue{},
+			[]parser.NamedTypeValue{
+				parser.NewNameType("", "error"),
+			},
+		))
+
 		tmplModel := map[string]interface{}{
 			"Calling":  v,
 			"Request":  req,
@@ -702,6 +800,7 @@ func (sg *ServiceInitGenerator) generateEndpoints(name string, iface *parser.Int
 		if err != nil {
 			return err
 		}
+
 		// add endpoint maker method
 		file.Methods = append(file.Methods, parser.NewMethodWithComment(
 			"Make"+v.Name+"Endpoint",
@@ -721,7 +820,7 @@ func (sg *ServiceInitGenerator) generateEndpoints(name string, iface *parser.Int
 			v.Name,
 			parser.NewNameType("s", "Set"),
 			fmt.Sprintf(`
-			request := %sReq{}
+			request := %sReq{To-do}
 			resp, err := s.%sEndpoint(ctx, request)
 			if err != nil {
 				return nil, err
@@ -744,6 +843,7 @@ func (sg *ServiceInitGenerator) generateEndpoints(name string, iface *parser.Int
 			%sEndpoint = LoggingMiddleware(log.With(logger, "method", method))(%sEndpoint)
 			%sEndpoint = InstrumentingMiddleware(duration.With("method", method))(%sEndpoint)
 			%sEndpoint = jwt.NewParser(kf, stdjwt.SigningMethodHS256, claimsFactory)(%sEndpoint)
+			set.%sEndpoint = %sEndpoint
 		}
 		`, utils.ToLowerFirstCamelCase(v.Name),
 			utils.ToLowerFirstCamelCase(v.Name),
@@ -756,8 +856,9 @@ func (sg *ServiceInitGenerator) generateEndpoints(name string, iface *parser.Int
 			utils.ToLowerFirstCamelCase(v.Name),
 			utils.ToLowerFirstCamelCase(v.Name),
 			utils.ToLowerFirstCamelCase(v.Name),
+			utils.ToLowerFirstCamelCase(v.Name),
+			utils.ToUpperFirstCamelCase(v.Name),
 			utils.ToLowerFirstCamelCase(v.Name))
-
 	}
 	file.Methods[0].Body += "\n return set"
 
@@ -1035,7 +1136,7 @@ func (sg *ServiceInitGenerator) generateServiceLoggingMiddleware(name string, if
 
 	for _, v := range iface.Methods {
 		var retBody string
-		logBody := fmt.Sprintf(`"method", "%s",  "err", err`, v.Name)
+		logBody := fmt.Sprintf(`"method", "%s"`, v.Name)
 		for i, p := range v.Parameters {
 			retBody += p.Name
 			if i < len(v.Parameters)-1 {
@@ -1044,6 +1145,9 @@ func (sg *ServiceInitGenerator) generateServiceLoggingMiddleware(name string, if
 			if p.Name != "ctx" {
 				logBody = fmt.Sprintf(`%s, "%s", %s`, logBody, p.Name, p.Name)
 			}
+		}
+		for _, p := range v.Results {
+			logBody = fmt.Sprintf(`%s, "%s", %s`, logBody, p.Name, p.Name)
 		}
 		file.Methods = append(file.Methods,
 			parser.NewMethod(
@@ -1207,14 +1311,14 @@ func (sg *GRPCInitGenerator) Generate(name string) error {
 		`options := []grpctransport.ServerOption{
 			grpctransport.ServerErrorLogger(logger),
 		}
-		grpcServer = &grpcServer{`,
+		grpcServer := &grpcServer{`,
 		[]parser.NamedTypeValue{
 			parser.NewNameType("endpoints", fmt.Sprintf("%sendpoint.Set", name)),
 			parser.NewNameType("tracer", "stdopentracing.Tracer"),
 			parser.NewNameType("logger", "log.Logger"),
 		},
 		[]parser.NamedTypeValue{
-			parser.NewNameType("grpcServer", fmt.Sprintf("pb.%sServer", utils.ToUpperFirstCamelCase(name))),
+			parser.NewNameType("", fmt.Sprintf("pb.%sServer", utils.ToUpperFirstCamelCase(name))),
 		},
 	))
 	//NewGRPCClient
@@ -1235,6 +1339,40 @@ func (sg *GRPCInitGenerator) Generate(name string) error {
 			parser.NewNameType("", fmt.Sprintf("%sservice.Service", utils.ToLowerFirstCamelCase(name))),
 		},
 	))
+	handler.Methods = append(handler.Methods, parser.NewMethodWithComment(
+		"str2err",
+		`str2err `,
+		parser.NamedTypeValue{},
+		fmt.Sprintf(`
+		if s == "" {
+			return nil
+		}
+		return errors.New(s)
+		`),
+		[]parser.NamedTypeValue{
+			parser.NewNameType("s", "string"),
+		},
+		[]parser.NamedTypeValue{
+			parser.NewNameType("", "error"),
+		},
+	))
+	handler.Methods = append(handler.Methods, parser.NewMethodWithComment(
+		"err2str",
+		`err2str `,
+		parser.NamedTypeValue{},
+		fmt.Sprintf(`
+		if err == nil {
+			return ""
+		}
+		return err.Error()
+		`),
+		[]parser.NamedTypeValue{
+			parser.NewNameType("err", "error"),
+		},
+		[]parser.NamedTypeValue{
+			parser.NewNameType("", "string"),
+		},
+	))
 	for _, v := range iface.Methods {
 		//add member to grpcServer
 		grpcStruct.Vars = append(grpcStruct.Vars, parser.NewNameType(
@@ -1251,7 +1389,7 @@ func (sg *GRPCInitGenerator) Generate(name string) error {
 			),
 			parser.NamedTypeValue{},
 			fmt.Sprintf(`r := grpcReq.(*pb.%sReq)
-			req := %sendpoint.%sReq{}
+			req := %sendpoint.%sReq{To-do}
 			return req, nil`, v.Name, name, v.Name),
 			[]parser.NamedTypeValue{
 				parser.NewNameType("_", "context.Context"),
@@ -1272,7 +1410,8 @@ func (sg *GRPCInitGenerator) Generate(name string) error {
 			),
 			parser.NamedTypeValue{},
 			fmt.Sprintf(`r := response.(%sendpoint.%sRes)
-			res := &pb.%sRes{}
+			res := &pb.%sRes{To-do}
+			To-do
 			return res, nil`, name, v.Name, v.Name),
 			[]parser.NamedTypeValue{
 				parser.NewNameType("_", "context.Context"),
@@ -1293,7 +1432,7 @@ func (sg *GRPCInitGenerator) Generate(name string) error {
 			),
 			parser.NamedTypeValue{},
 			fmt.Sprintf(`r := request.(%sendpoint.%sReq)
-			req :=  pb.%sReq{}
+			req :=  &pb.%sReq{To-do}
 			return req, nil`, name, v.Name, v.Name),
 			[]parser.NamedTypeValue{
 				parser.NewNameType("_", "context.Context"),
@@ -1314,7 +1453,7 @@ func (sg *GRPCInitGenerator) Generate(name string) error {
 			),
 			parser.NamedTypeValue{},
 			fmt.Sprintf(`r := grpcReply.(*pb.%sRes)
-			res := %sendpoint.%sRes{}
+			res := %sendpoint.%sRes{To-do}
 			return res, nil`, utils.ToUpperFirstCamelCase(v.Name), name, v.Name),
 			[]parser.NamedTypeValue{
 				parser.NewNameType("_", "context.Context"),
