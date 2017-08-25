@@ -321,10 +321,14 @@ func (sg *ServiceInitGenerator) generateHttpTransport(name string, iface *parser
 			"encodeHTTPGenericResponse",
 			`encodeHTTPGenericResponse`,
 			parser.NamedTypeValue{},
-			`s, err := json.Marshal(response)
-			 d := RC4Crypt(s)
-			 w.Write(d)
-			 return err`,
+			fmt.Sprintf(`if f, ok := response.(%sendpoint.Failer); ok && f.Failed() != nil {
+				errorEncoder(ctx, f.Failed(), w)
+				return nil
+			}
+			s, err := json.Marshal(response)
+			d := RC4Crypt(s)
+			w.Write(d)
+			return err`, name),
 			[]parser.NamedTypeValue{
 				parser.NewNameType("ctx", "context.Context"),
 				parser.NewNameType("w", "http.ResponseWriter"),
@@ -356,7 +360,9 @@ func (sg *ServiceInitGenerator) generateHttpTransport(name string, iface *parser
 			parser.NamedTypeValue{},
 			`code := http.StatusInternalServerError
 			 msg := err.Error()
-			 switch err {
+			 switch msg {
+			 case ErrJWTExpired.Error():
+				code = http.StatusUnauthorized
 			 default:
 			 	code = http.StatusInternalServerError
 			 }
