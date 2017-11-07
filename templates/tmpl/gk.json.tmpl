@@ -21,7 +21,7 @@
   "file_name":"grpc.go"
   },
   "pb":{
-  "path":"{{`{{toSnakeCase .ServiceName}}`}}{{fileSeparator}}pb"
+  "path":"{{`{{toSnakeCase .ServiceName}}`}}{{fileSeparator}}{{`{{toSnakeCase .ServiceName}}`}}pb"
   },
   "cmd":{
    "path":"cmd{{fileSeparator}}{{`{{toSnakeCase .ServiceName}}`}}",

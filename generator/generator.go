@@ -199,8 +199,8 @@ func (sg *ServiceInitGenerator) Generate(name string) error {
 				parser.NewNameType("logger", "log.Logger"),
 			},
 			[]parser.NamedTypeValue{
-				parser.NewNameType("svc", "Service"),
-				parser.NewNameType("err", "error"),
+				parser.NewNameType("", "Service"),
+				parser.NewNameType("", "error"),
 			},
 		)
 		s += "\n" + newMethod.String()
@@ -367,7 +367,7 @@ func (sg *ServiceInitGenerator) generateHttpTransport(name string, iface *parser
 			 	code = http.StatusInternalServerError
 			 }
 			 w.WriteHeader(code)
-			 s, err := json.Marshal(errorWrapper{Error: msg})
+			 s, err := json.Marshal(errorWrapper{Err: msg})
 			 d := RC4Crypt(s)
 			 w.Write(d)`,
 			[]parser.NamedTypeValue{
@@ -739,7 +739,7 @@ func (sg *ServiceInitGenerator) generateEndpoints(name string, iface *parser.Int
  			 failed, and if so encode them using a separate write path based on the error.
 			`,
 			[]parser.Method{
-				parser.NewMethod("Failed", parser.NamedTypeValue{}, "", []parser.NamedTypeValue{}, []parser.NamedTypeValue{}),
+				parser.NewMethod("Failed", parser.NamedTypeValue{}, "", []parser.NamedTypeValue{}, []parser.NamedTypeValue{parser.NewNameType("", "error")}),
 			}),
 	}
 

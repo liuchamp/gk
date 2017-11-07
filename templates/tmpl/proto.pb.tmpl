@@ -1,5 +1,5 @@
 syntax = "proto3";
-package pb;
+package {{toSnakeCase .Name}}pb;
 // The {{.Name}} service definition.
 service {{.Name}} {
 {{range $i,$v := .Methods}} rpc {{$v.Name}} ({{$v.Request}}) returns ({{$v.Reply}}) {}
