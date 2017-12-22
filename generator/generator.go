@@ -1324,7 +1324,7 @@ func (sg *GRPCInitGenerator) Generate(name string) error {
 			parser.NewNameType("logger", "log.Logger"),
 		},
 		[]parser.NamedTypeValue{
-			parser.NewNameType("", fmt.Sprintf("pb.%sServer", utils.ToUpperFirstCamelCase(name))),
+			parser.NewNameType("", fmt.Sprintf("%spb.%sServer", name, utils.ToUpperFirstCamelCase(name))),
 		},
 	))
 	//NewGRPCClient
@@ -1394,9 +1394,9 @@ func (sg *GRPCInitGenerator) Generate(name string) error {
 				v.Name,
 			),
 			parser.NamedTypeValue{},
-			fmt.Sprintf(`r := grpcReq.(*pb.%sReq)
+			fmt.Sprintf(`r := grpcReq.(*%spb.%sReq)
 			req := %sendpoint.%sReq{To-do}
-			return req, nil`, v.Name, name, v.Name),
+			return req, nil`, name, v.Name, name, v.Name),
 			[]parser.NamedTypeValue{
 				parser.NewNameType("_", "context.Context"),
 				parser.NewNameType("grpcReq", "interface{}"),
@@ -1416,9 +1416,9 @@ func (sg *GRPCInitGenerator) Generate(name string) error {
 			),
 			parser.NamedTypeValue{},
 			fmt.Sprintf(`r := response.(%sendpoint.%sRes)
-			res := &pb.%sRes{To-do}
+			res := &%spb.%sRes{To-do}
 			To-do
-			return res, nil`, name, v.Name, v.Name),
+			return res, nil`, name, v.Name, name, v.Name),
 			[]parser.NamedTypeValue{
 				parser.NewNameType("_", "context.Context"),
 				parser.NewNameType("response", "interface{}"),
@@ -1438,8 +1438,8 @@ func (sg *GRPCInitGenerator) Generate(name string) error {
 			),
 			parser.NamedTypeValue{},
 			fmt.Sprintf(`r := request.(%sendpoint.%sReq)
-			req :=  &pb.%sReq{To-do}
-			return req, nil`, name, v.Name, v.Name),
+			req :=  &%spb.%sReq{To-do}
+			return req, nil`, name, v.Name, name, v.Name),
 			[]parser.NamedTypeValue{
 				parser.NewNameType("_", "context.Context"),
 				parser.NewNameType("request", "interface{}"),
@@ -1458,9 +1458,9 @@ func (sg *GRPCInitGenerator) Generate(name string) error {
 				v.Name,
 			),
 			parser.NamedTypeValue{},
-			fmt.Sprintf(`r := grpcReply.(*pb.%sRes)
+			fmt.Sprintf(`r := grpcReply.(*%spb.%sRes)
 			res := %sendpoint.%sRes{To-do}
-			return res, nil`, utils.ToUpperFirstCamelCase(v.Name), name, v.Name),
+			return res, nil`, name, utils.ToUpperFirstCamelCase(v.Name), name, v.Name),
 			[]parser.NamedTypeValue{
 				parser.NewNameType("_", "context.Context"),
 				parser.NewNameType("grpcReply", "interface{}"),
@@ -1479,17 +1479,18 @@ func (sg *GRPCInitGenerator) Generate(name string) error {
 					if err != nil {
 						return nil, err
 					}
-					rep = rp.(*pb.%sRes)
+					rep = rp.(*%spb.%sRes)
 					return rep, err`,
 				utils.ToLowerFirstCamelCase(v.Name),
+				name,
 				v.Name,
 			),
 			[]parser.NamedTypeValue{
 				parser.NewNameType("ctx", "oldcontext.Context"),
-				parser.NewNameType("req", fmt.Sprintf("*pb.%sReq", v.Name)),
+				parser.NewNameType("req", fmt.Sprintf("*%spb.%sReq", name, v.Name)),
 			},
 			[]parser.NamedTypeValue{
-				parser.NewNameType("rep", fmt.Sprintf("*pb.%sRes", v.Name)),
+				parser.NewNameType("rep", fmt.Sprintf("*%spb.%sRes", name, v.Name)),
 				parser.NewNameType("err", "error"),
 			},
 		))
@@ -1505,17 +1506,18 @@ func (sg *GRPCInitGenerator) Generate(name string) error {
 			)...,
 		),
 		`, utils.ToLowerFirstCamelCase(v.Name), v.Name, v.Name, v.Name, v.Name)
+
 		//init grpcServer method
 		handler.Methods[1].Body += "\n" + fmt.Sprintf(`
 			var %sEndpoint endpoint.Endpoint
 			{
 				%sEndpoint = grpctransport.NewClient(
 					conn,
-					"pb.%s",
+					"%spb.%s",
 					"%s",
 					encodeGRPC%sReq,
 					decodeGRPC%sRes,
-					pb.%sRes{},
+					%spb.%sRes{},
 					grpctransport.ClientBefore(opentracing.ContextToGRPC(tracer, logger)),
 					grpctransport.ClientBefore(jwt.ContextToGRPC()),
 				).Endpoint()
@@ -1525,8 +1527,9 @@ func (sg *GRPCInitGenerator) Generate(name string) error {
 			}
 		`, utils.ToLowerFirstCamelCase(v.Name),
 			utils.ToLowerFirstCamelCase(v.Name),
+			name,
 			utils.ToUpperFirstCamelCase(name),
-			v.Name, v.Name, v.Name, v.Name,
+			v.Name, v.Name, v.Name, name, v.Name,
 			utils.ToLowerFirstCamelCase(v.Name),
 			utils.ToLowerFirstCamelCase(v.Name),
 			utils.ToLowerFirstCamelCase(v.Name),
