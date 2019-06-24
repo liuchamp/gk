@@ -2,10 +2,15 @@ syntax = "proto3";
 package {{toSnakeCase .Name}}pb;
 // The {{.Name}} service definition.
 service {{.Name}} {
-{{range $i,$v := .Methods}} rpc {{$v.Name}} ({{$v.Request}}) returns ({{$v.Reply}}) {}
+{{range $i,$v := .Methods}}    rpc {{$v.Name}} ({{$v.Name}}Req) returns ({{$v.Name}}Res) {}
 {{end}}}
-{{range $i,$v := .Methods}}message {{$v.Request}} {
+
+{{range $i,$v := .Methods}}
+message {{$v.Name}}Req {
+{{range $k,$kv := $v.Parameters}}     {{$kv.Type}} {{$kv.Name}} = {{$kv.Value}};{{end}}
 }
-message {{$v.Reply}} {
+
+message {{$v.Name}}Res {
+{{range $k,$kv := $v.Results}}    {{$kv.Type}} {{$kv.Name}} = {{$kv.Value}};{{end}}
 }
 {{end}}

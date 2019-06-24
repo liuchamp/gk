@@ -1,0 +1,5 @@
+{{if gt (len $) 0}}
+{{range $i,$v := $}}
+type {{$v.Name}} {{$v.Type}}
+{{end}}
+{{end}}
