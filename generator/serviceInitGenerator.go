@@ -3,7 +3,7 @@ package generator
 import (
 	"errors"
 	"fmt"
-	"github.com/Sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"github.com/yiv/gk/fs"
 	"github.com/yiv/gk/parser"
@@ -747,7 +747,7 @@ func (sg *ServiceInitGenerator) generateEndpoints(name string, iface *parser.Int
 				parser.NewNameType("logger", "log.Logger"),
 				parser.NewNameType("duration", "metrics.Histogram"),
 				parser.NewNameType("otTracer", "stdopentracing.Tracer"),
-				parser.NewNameType("zipkinTracer", "stdzipkin.Tracer"),
+				parser.NewNameType("zipkinTracer", "*stdzipkin.Tracer"),
 			},
 			[]parser.NamedTypeValue{
 				parser.NewNameType("set", "Set"),

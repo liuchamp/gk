@@ -3,12 +3,12 @@ package cmd
 import (
 	"os"
 
-	"github.com/Sirupsen/logrus"
-	"github.com/yiv/gk/fs"
-	"github.com/yiv/gk/templates"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"github.com/yiv/gk/fs"
+	"github.com/yiv/gk/templates"
 )
 
 // RootCmd represents the base command when called without any subcommands

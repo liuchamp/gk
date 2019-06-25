@@ -3,7 +3,7 @@ package template
 import (
 	"bytes"
 	"fmt"
-	"github.com/Sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"github.com/yiv/gk/utils"
 	"path/filepath"
 	"reflect"

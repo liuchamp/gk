@@ -2,7 +2,7 @@ package parser
 
 import (
 	"fmt"
-	"github.com/Sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	template "github.com/yiv/gk/templates"
 	"golang.org/x/tools/imports"
 )

@@ -1,11 +1,11 @@
 package main
 
 import (
-	"github.com/Sirupsen/logrus"
-	"github.com/yiv/gk/cmd"
-	"github.com/yiv/gk/utils"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/afero"
 	"github.com/spf13/viper"
+	"github.com/yiv/gk/cmd"
+	"github.com/yiv/gk/utils"
 	"os"
 	"strings"
 )

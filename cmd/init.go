@@ -1,10 +1,10 @@
 package cmd
 
 import (
-	"github.com/Sirupsen/logrus"
-	"github.com/yiv/gk/generator"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"github.com/yiv/gk/generator"
 )
 
 // initCmd represents the init command

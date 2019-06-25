@@ -3,7 +3,7 @@ package parser
 import (
 	"bytes"
 	"fmt"
-	"github.com/Sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"go/ast"
 	"go/format"
 	"go/parser"
