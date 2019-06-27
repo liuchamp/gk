@@ -22,6 +22,12 @@ func ToLowerSnakeCase(s string) string {
 	return strings.ToLower(godash.ToSnakeCase(s))
 }
 
+func ToLowerHyphenCase(s string) string {
+	s = strings.ToLower(godash.ToSnakeCase(s))
+	s = strings.ReplaceAll(s, "_", "-")
+	return s
+}
+
 func ToCamelCase(s string) string {
 	return godash.ToCamelCase(s)
 }

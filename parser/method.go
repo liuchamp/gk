@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"fmt"
 	"github.com/sirupsen/logrus"
 	template "github.com/yiv/gk/templates"
 	"go/format"
@@ -49,6 +50,9 @@ func (m *Method) String() string {
 	}
 	dt, err := format.Source([]byte(str))
 	if err != nil {
+		fmt.Println("==========================")
+		fmt.Println(string(str))
+		fmt.Println("==========================")
 		logrus.Panic(err)
 	}
 	return string(dt)

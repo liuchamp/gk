@@ -34,7 +34,9 @@ func (sg *ServiceGenerator) Generate(name string) error {
 	f.AliasType = []parser.NamedTypeValue{parser.NewNameType("Middleware", "func(Service) Service")}
 
 	svcInterface := []parser.Interface{
-		parser.NewInterfaceWithComment(iname, `Implement yor service methods methods.
+		parser.NewInterfaceWithComment(iname, `
+		Service describes a service that adds things together
+		Implement yor service methods methods.
 		e.x: Foo(ctx context.Context,bar string)(rs string, err error)`, []parser.Method{
 			parser.NewMethod("Foo", parser.NamedTypeValue{}, "", []parser.NamedTypeValue{
 				parser.NewNameType("ctx", "context.Context"),

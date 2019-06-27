@@ -106,7 +106,9 @@ func (sg *ServiceInitGenerator) Generate(name string) error {
 		}
 
 	}
+
 	iface.Methods = toKeep
+
 	if len(iface.Methods) == 0 {
 		return errors.New("The service has no suitable methods please implement the interface methods")
 	}
@@ -117,7 +119,10 @@ func (sg *ServiceInitGenerator) Generate(name string) error {
 	if err != nil {
 		return err
 	}
-	stub := parser.NewStruct(stubName, []parser.NamedTypeValue{})
+	stub := parser.NewStructWithComment(stubName,
+		"the concrete implementation of service interface",
+		[]parser.NamedTypeValue{parser.NewNameType("Logger", "log.Logger")},
+	)
 	exists := false
 	for _, v := range f.Structs {
 		if v.Name == stub.Name {
@@ -141,14 +146,20 @@ func (sg *ServiceInitGenerator) Generate(name string) error {
 			`Get a new instance of the service.
 			If you want to add service middleware this is the place to put them.`,
 			parser.NamedTypeValue{},
-			fmt.Sprintf(`svc := %s{}
-			return svc,nil`, stub.Name),
+			fmt.Sprintf(`
+			var  err error
+			svc = %s{Logger:logger}
+			defer func() {
+				if err != nil {
+					panic(err.Error())
+				}
+			}()
+			return `, stub.Name),
 			[]parser.NamedTypeValue{
 				parser.NewNameType("logger", "log.Logger"),
 			},
 			[]parser.NamedTypeValue{
-				parser.NewNameType("", "Service"),
-				parser.NewNameType("", "error"),
+				parser.NewNameType("svc", "Service"),
 			},
 		)
 		s += "\n" + newMethod.String()
@@ -383,7 +394,7 @@ func (sg *ServiceInitGenerator) generateHttpTransport(name string, iface *parser
 			httptransport.ServerBefore(opentracing.HTTPToContext(otTracer, "%s", logger)), 
 			httptransport.ServerBefore(jwt.HTTPToContext()),
 		)...,
-    ))`, utils.ToLowerFirstCamelCase(m.Name), m.Name, m.Name, utils.ToLowerFirstCamelCase(m.Name))
+    ))`, utils.ToLowerHyphenCase(m.Name), m.Name, m.Name, utils.ToLowerFirstCamelCase(m.Name))
 	}
 	handlerFile.Methods[0].Body += "\n" + "return m"
 	path, err := te.ExecuteString(viper.GetString("httptransport.path"), map[string]string{
@@ -433,9 +444,6 @@ func (sg *ServiceInitGenerator) generateGRPCTransport(name string, iface *parser
 		//"TransportType": "grpc",
 	})
 
-	fmt.Printf("edwin #460 %#v \n", iface.Methods[0].Parameters)
-	fmt.Printf("edwin #460 %#v \n", iface.Methods[0].Results)
-
 	//path += defaultFs.FilePathSeparator() + "pb"
 	//if err != nil {
 	//	return err
@@ -466,7 +474,7 @@ func (sg *ServiceInitGenerator) generateGRPCTransport(name string, iface *parser
 		Name    string
 		Methods []parser.Method
 	}
-	pbModel := ProtobufModel{Name: name}
+	pbModel := ProtobufModel{Name: utils.ToUpperFirstCamelCase(name)}
 	for _, v := range iface.Methods {
 		m := parser.Method{Name: v.Name}
 		for k, kv := range v.Parameters {
@@ -1045,9 +1053,9 @@ func (sg *ServiceInitGenerator) generateServiceInstrumentingMiddleware(name stri
 		fmt.Sprintf(`
 		return func(next Service) Service {
 			return instrumentingMiddleware{
-				requestCount:   requestCount,
+				requestCount:  requestCount,
 				requestLatency: requestLatency,
-				next:           next,
+				next:  next,
 			}
 		}`),
 		[]parser.NamedTypeValue{

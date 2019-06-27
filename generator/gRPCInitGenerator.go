@@ -268,7 +268,6 @@ func (sg *GRPCInitGenerator) Generate(name string) error {
 		))
 
 		// add server side response encoder
-		fmt.Printf("edwin #5 %#v \n", v.Results)
 		var encodeResParamList string
 		for _, v := range v.Results {
 			pname := utils.ToUpperFirstCamelCase(v.Name)
@@ -425,7 +424,7 @@ func (sg *GRPCInitGenerator) Generate(name string) error {
 			}
 		`, lowerName, lowerName,
 			name,
-			upperName, upperName, upperName, upperName, name, upperName,
+			utils.ToUpperFirstCamelCase(name), upperName, upperName, upperName, name, upperName,
 			lowerName, lowerName, lowerName, lowerName, lowerName, lowerName,
 			upperName,
 			lowerName,
