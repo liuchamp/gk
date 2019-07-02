@@ -14,7 +14,8 @@
   },
   "httptransport":{
     "path":"{{`{{toSnakeCase .ServiceName}}`}}{{fileSeparator}}pkg{{fileSeparator}}{{`{{toSnakeCase .ServiceName}}`}}transport",
-    "file_name":"http.go"
+    "file_name":"http.go",
+    "test_file_name":"http_test.go"
   },
   "grpctransport":{
   "path":"{{`{{toSnakeCase .ServiceName}}`}}{{fileSeparator}}pkg{{fileSeparator}}{{`{{toSnakeCase .ServiceName}}`}}transport",

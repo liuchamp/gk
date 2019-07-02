@@ -1,6 +1,4 @@
-{{if gt (len $) 0}}const
-({{range $i,$v := $}}{{$v.Name}} {{$v.Type}}
-{{if $v.HasValue}}= {{$v.Value}}{{end}}
-{{end}}
-)
+{{if gt (len $) 0}}const (
+{{range $i,$v := $}}{{$v.Name}} {{$v.Type}}{{if $v.HasValue}}= {{$v.Value}}{{end}}
+{{end}})
 {{end}}

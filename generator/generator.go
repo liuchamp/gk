@@ -37,12 +37,12 @@ func (sg *ServiceGenerator) Generate(name string) error {
 		parser.NewInterfaceWithComment(iname, `
 		Service describes a service that adds things together
 		Implement yor service methods methods.
-		e.x: Foo(ctx context.Context,bar string)(rs string, err error)`, []parser.Method{
-			parser.NewMethod("Foo", parser.NamedTypeValue{}, "", []parser.NamedTypeValue{
+		e.x: FooToo(ctx context.Context,inParam string)(outParam string, err error)`, []parser.Method{
+			parser.NewMethod("FooToo", parser.NamedTypeValue{}, "", []parser.NamedTypeValue{
 				parser.NewNameType("ctx", "context.Context"),
-				parser.NewNameType("bar", "string"),
+				parser.NewNameType("inParam", "string"),
 			}, []parser.NamedTypeValue{
-				parser.NewNameType("res", "string"),
+				parser.NewNameType("outParam", "string"),
 				parser.NewNameType("err", "error"),
 			}),
 		}),

@@ -210,7 +210,13 @@ func (sg *ServiceInitGenerator) generateTransport(name string, iface *parser.Int
 	switch transport {
 	case "http":
 		logrus.Info("Selected http transport.")
-		return sg.generateHttpTransport(name, iface)
+		if err := sg.generateHttpTransport(name, iface); err != nil {
+			return err
+		}
+		if err := sg.generateHttpTransportTesting(name, iface); err != nil {
+			return err
+		}
+		return nil
 	case "grpc":
 		logrus.Info("Selected grpc transport.")
 		return sg.generateGRPCTransport(name, iface)
@@ -393,8 +399,9 @@ func (sg *ServiceInitGenerator) generateHttpTransport(name string, iface *parser
         append(options, 
 			httptransport.ServerBefore(opentracing.HTTPToContext(otTracer, "%s", logger)), 
 			httptransport.ServerBefore(jwt.HTTPToContext()),
-		)...,
-    ))`, utils.ToLowerHyphenCase(m.Name), m.Name, m.Name, utils.ToLowerFirstCamelCase(m.Name))
+			)...,
+		))`,
+			utils.ToLowerHyphenCase(m.Name), m.Name, m.Name, utils.ToLowerFirstCamelCase(m.Name))
 	}
 	handlerFile.Methods[0].Body += "\n" + "return m"
 	path, err := te.ExecuteString(viper.GetString("httptransport.path"), map[string]string{
@@ -434,6 +441,243 @@ func (sg *ServiceInitGenerator) generateHttpTransport(name string, iface *parser
 	}
 	return defaultFs.WriteFile(tfile, handlerFile.String(), false)
 }
+func (sg *ServiceInitGenerator) generateHttpTransportTesting(name string, iface *parser.Interface) error {
+	logrus.Info("Generating http transport testing...")
+	te := template.NewEngine()
+	defaultFs := fs.Get()
+	handlerFile := parser.NewFile()
+	handlerFile.Package = fmt.Sprintf("%stransport", name)
+	gosrc := utils.GetGOPATH() + "/src/"
+	gosrc = strings.Replace(gosrc, "\\", "/", -1)
+	pwd, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+	if viper.GetString("gk_folder") != "" {
+		pwd += "/" + viper.GetString("gk_folder")
+	}
+	pwd = strings.Replace(pwd, "\\", "/", -1)
+	projectPath := strings.Replace(pwd, gosrc, "", 1)
+	enpointsPath, err := te.ExecuteString(viper.GetString("endpoints.path"), map[string]string{
+		"ServiceName": name,
+	})
+	if err != nil {
+		return err
+	}
+	enpointsPath = strings.Replace(enpointsPath, "\\", "/", -1)
+	endpointsImport := projectPath + "/" + enpointsPath
+	handlerFile.Imports = []parser.NamedTypeValue{
+		parser.NewNameType("stdzipkin", `"github.com/openzipkin/zipkin-go"`),
+		parser.NewNameType("stdopentracing", "\"github.com/opentracing/opentracing-go\"\n"),
+		parser.NewNameType("", "\"github.com/go-kit/kit/log\""),
+		parser.NewNameType("", "\"github.com/go-kit/kit/auth/jwt\""),
+		parser.NewNameType("", "\"github.com/go-kit/kit/tracing/opentracing\""),
+		parser.NewNameType("httptransport", "\"github.com/go-kit/kit/transport/http\"\n"),
+		parser.NewNameType("", "\""+endpointsImport+"\""),
+	}
+
+	handlerFile.Constants = []parser.NamedTypeValue{
+		parser.NewNameTypeValue("Host", "string", `"http://10.72.17.30"`),
+	}
+
+	handlerFile.Methods = append(handlerFile.Methods, parser.NewMethodWithComment(
+		"NewJWTToken",
+		`NewJWTToken accept a user id as input parameter, return a string of jwt token`,
+		parser.NamedTypeValue{},
+		`return jwttoken.NewJWTToken(uid)`,
+		[]parser.NamedTypeValue{
+			parser.NewNameType("uid", "string"),
+		},
+		[]parser.NamedTypeValue{
+			parser.NewNameType("", "string"),
+		},
+	))
+
+	handlerFile.Methods = append(handlerFile.Methods, parser.NewMethodWithComment(
+		"HTTPPostJSON",
+		`HTTPPostJSON submit content of JSON format string by HTTP POST`,
+		parser.NamedTypeValue{},
+		`
+			reqUrl := host + path
+			fmt.Println("URL: ", reqUrl)
+			var (
+				req  *http.Request
+				resp *http.Response
+				err  error
+			)
+			req, err = http.NewRequest("POST", reqUrl, bytes.NewBuffer(content))
+			if err != nil {
+				fmt.Println("err", err.Error())
+				os.Exit(0)
+			}
+			req.Header.Set("Content-Type", "text/plain")
+			if jwt != "" {
+				req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", jwt))
+			}
+			client := &http.Client{}
+			resp, err = client.Do(req)
+			if err != nil {
+				fmt.Println("err", err.Error())
+				os.Exit(0)
+			}
+			fmt.Println("Request Header: ", req.Header)
+		
+			defer resp.Body.Close()
+		
+			fmt.Println("response Status:", resp.Status)
+			body, _ := ioutil.ReadAll(resp.Body)
+			return body`,
+		[]parser.NamedTypeValue{
+			parser.NewNameType("host", "string"),
+			parser.NewNameType("path", "string"),
+			parser.NewNameType("content", "[]byte"),
+			parser.NewNameType("jwt", "string"),
+		},
+		[]parser.NamedTypeValue{
+			parser.NewNameType("", "[]byte"),
+		},
+	))
+
+	handlerFile.Methods = append(handlerFile.Methods, parser.NewMethodWithComment(
+		"HTTPSPostJSON",
+		`HTTPSPostJSON submit content of JSON format string by HTTPS POST`,
+		parser.NamedTypeValue{},
+		`
+			reqUrl := host + path
+			fmt.Println("URL: ", reqUrl)
+			var (
+				req  *http.Request
+				resp *http.Response
+				err  error
+			)
+			req, err = http.NewRequest("POST", reqUrl, bytes.NewBuffer(content))
+			if err != nil {
+				fmt.Println("err", err.Error())
+				os.Exit(0)
+			}
+			req.Header.Set("Content-Type", "text/plain")
+			if jwt != "" {
+				req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", jwt))
+			}
+			tr := &http.Transport{
+				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+			}
+			client := &http.Client{Transport: tr, Timeout: time.Second * 5}
+			resp, err = client.Do(req)
+			if err != nil {
+				fmt.Println("err", err.Error())
+				os.Exit(0)
+			}
+			fmt.Println("Request Header: ", req.Header)
+		
+			defer resp.Body.Close()
+		
+			fmt.Println("response Status:", resp.Status)
+			body, _ := ioutil.ReadAll(resp.Body)
+			return body`,
+		[]parser.NamedTypeValue{
+			parser.NewNameType("host", "string"),
+			parser.NewNameType("path", "string"),
+			parser.NewNameType("content", "[]byte"),
+			parser.NewNameType("jwt", "string"),
+		},
+		[]parser.NamedTypeValue{
+			parser.NewNameType("", "[]byte"),
+		},
+	))
+
+	handlerFile.Methods = append(handlerFile.Methods, parser.NewMethodWithComment(
+		"HTTPPostForm",
+		`HTTPPostForm submit content of FORM format string by HTTPS POST`,
+		parser.NamedTypeValue{},
+		`
+			reqUrl := host + path
+			resp, err := http.PostForm(reqUrl, form)
+			if err != nil {
+				fmt.Println("http do request err ", err.Error())
+				return nil
+			}
+			defer resp.Body.Close()
+			fmt.Println("response Status:", resp.Status)
+			body, _ := ioutil.ReadAll(resp.Body)
+			return body`,
+		[]parser.NamedTypeValue{
+			parser.NewNameType("host", "string"),
+			parser.NewNameType("path", "string"),
+			parser.NewNameType("form", "url.Values"),
+		},
+		[]parser.NamedTypeValue{
+			parser.NewNameType("", "[]byte"),
+		},
+	))
+
+	for _, m := range iface.Methods {
+		jsonContent := "`{"
+		for _,v := range m.Parameters {
+			if v.Name == "ctx" {
+				continue
+			}
+			jsonContent += fmt.Sprintf(`"%v":xxxxx`, utils.ToLowerSnakeCase(v.Name))
+		}
+		jsonContent = strings.Trim(jsonContent, ",")
+		jsonContent = strings.TrimSpace(jsonContent)
+		jsonContent += "}`"
+		handlerFile.Methods = append(handlerFile.Methods,
+			parser.NewMethod(
+				fmt.Sprintf("Test%v", m.Name),
+				parser.NamedTypeValue{},
+				fmt.Sprintf(`start := time.Now()
+					path := "/app/user/%s"
+					content := []byte(%s)
+					r := HTTPPostJSON(Host, path, content, "")
+					fmt.Println("response Body:", string(r))
+					fmt.Println(time.Now().Sub(start))`, utils.ToLowerHyphenCase(m.Name), jsonContent),
+				[]parser.NamedTypeValue{
+					parser.NewNameType("t", "*testing.T"),
+				},
+				[]parser.NamedTypeValue{},
+			),
+		)
+	}
+
+	path, err := te.ExecuteString(viper.GetString("httptransport.path"), map[string]string{
+		"ServiceName":   name,
+		"TransportType": "http",
+	})
+	if err != nil {
+		return err
+	}
+	b, err := defaultFs.Exists(path)
+	if err != nil {
+		return err
+	}
+	fname, err := te.ExecuteString(viper.GetString("httptransport.test_file_name"), map[string]string{
+		"ServiceName":   name,
+		"TransportType": "http",
+	})
+	if err != nil {
+		return err
+	}
+	tfile := path + defaultFs.FilePathSeparator() + fname
+	if b {
+		fex, err := defaultFs.Exists(tfile)
+		if err != nil {
+			return err
+		}
+		if fex {
+			logrus.Errorf("Transport for service `%s` exist", name)
+			logrus.Info("If you are trying to update a service use `gk update service [serviceName]`")
+			return nil
+		}
+	} else {
+		err = defaultFs.MkdirAll(path)
+		if err != nil {
+			return err
+		}
+	}
+	return defaultFs.WriteFile(tfile, handlerFile.String(), false)
+}
+
 func (sg *ServiceInitGenerator) generateGRPCTransport(name string, iface *parser.Interface) error {
 	logrus.Info("Generating grpc transport...")
 	te := template.NewEngine()
