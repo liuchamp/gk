@@ -478,15 +478,17 @@ func (sg *ServiceInitGenerator) generateHttpTransportTesting(name string, iface 
 
 	handlerFile.Constants = []parser.NamedTypeValue{
 		parser.NewNameTypeValue("Host", "string", `"http://10.72.17.30"`),
+		parser.NewNameTypeValue("Uid", "int64", `999999999999`),
 	}
 
 	handlerFile.Methods = append(handlerFile.Methods, parser.NewMethodWithComment(
 		"NewJWTToken",
 		`NewJWTToken accept a user id as input parameter, return a string of jwt token`,
 		parser.NamedTypeValue{},
-		`return jwttoken.NewJWTToken(uid)`,
+		`return jwttoken.NewJWTTokenString("############################",uid)`,
 		[]parser.NamedTypeValue{
-			parser.NewNameType("uid", "string"),
+			parser.NewNameType("key", "string"),
+			parser.NewNameType("uid", "int64"),
 		},
 		[]parser.NamedTypeValue{
 			parser.NewNameType("", "string"),
@@ -613,11 +615,11 @@ func (sg *ServiceInitGenerator) generateHttpTransportTesting(name string, iface 
 
 	for _, m := range iface.Methods {
 		jsonContent := "`{"
-		for _,v := range m.Parameters {
+		for _, v := range m.Parameters {
 			if v.Name == "ctx" {
 				continue
 			}
-			jsonContent += fmt.Sprintf(`"%v":xxxxx`, utils.ToLowerSnakeCase(v.Name))
+			jsonContent += fmt.Sprintf(`"%v":xxxxx,`, utils.ToLowerSnakeCase(v.Name))
 		}
 		jsonContent = strings.Trim(jsonContent, ",")
 		jsonContent = strings.TrimSpace(jsonContent)
@@ -629,7 +631,7 @@ func (sg *ServiceInitGenerator) generateHttpTransportTesting(name string, iface 
 				fmt.Sprintf(`start := time.Now()
 					path := "/app/user/%s"
 					content := []byte(%s)
-					r := HTTPPostJSON(Host, path, content, "")
+					r := HTTPPostJSON(Host, path, content, NewJWTToken(Uid))
 					fmt.Println("response Body:", string(r))
 					fmt.Println(time.Now().Sub(start))`, utils.ToLowerHyphenCase(m.Name), jsonContent),
 				[]parser.NamedTypeValue{
@@ -989,17 +991,18 @@ func (sg *ServiceInitGenerator) generateEndpoints(name string, iface *parser.Int
 			parser.NamedTypeValue{},
 			fmt.Sprintf(`
 			kf := func(token *stdjwt.Token) (interface{}, error) {
-				return []byte(%sservice.JwtHmacSecret), nil
+				return []byte(jwtKey), nil
 			}
 			claimsFactory := func() stdjwt.Claims {
 				return &stdjwt.MapClaims{}
-			}`, name),
+			}`),
 			[]parser.NamedTypeValue{
 				parser.NewNameType("svc", fmt.Sprintf("%sservice", name)+"."+iface.Name),
 				parser.NewNameType("logger", "log.Logger"),
 				parser.NewNameType("duration", "metrics.Histogram"),
 				parser.NewNameType("otTracer", "stdopentracing.Tracer"),
 				parser.NewNameType("zipkinTracer", "*stdzipkin.Tracer"),
+				parser.NewNameType("jwtKey", "string"),
 			},
 			[]parser.NamedTypeValue{
 				parser.NewNameType("set", "Set"),
