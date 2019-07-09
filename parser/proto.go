@@ -22,6 +22,7 @@ func (p *Proto) handleService() func(s *proto.Service) {
 		p.ServiceName = s.Name
 	}
 }
+
 func (p *Proto) handleMessage() func(s *proto.Message) {
 	return func(s *proto.Message) {
 		fields := []NamedTypeValue{}
@@ -76,5 +77,13 @@ func (pp *ProtoParser) Parse(src []byte) (*Proto, error) {
 		proto.WithMessage(p.handleMessage()),
 		proto.WithRPC(p.handleRPC()),
 	)
+	for _, v := range definition.Elements {
+		switch v.(type) {
+		case *proto.Package:
+			pack := v.(*proto.Package)
+			p.PackageName = pack.Name
+		}
+	}
+
 	return p, nil
 }

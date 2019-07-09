@@ -26,9 +26,9 @@ func TestProtoParse(t *testing.T) {
 		log.Fatal("err", err.Error())
 	}
 
-	//fmt.Printf("PackageName %#v \n", p.PackageName)
-	fmt.Printf("ServiceName %#v \n", p.ServiceName)
-	fmt.Printf("Methods %#v \n", p.Methods)
-	fmt.Printf("Message %#v \n", p.Messages)
+	fmt.Printf("PackageName %#v \n", p.PackageName)
+	//fmt.Printf("ServiceName %#v \n", p.ServiceName)
+	//fmt.Printf("Methods %#v \n", p.Methods)
+	//fmt.Printf("Message %#v \n", p.Messages)
 
 }
