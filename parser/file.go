@@ -35,6 +35,7 @@ func (f *File) String() string {
 	if err != nil {
 		logrus.Panic(err)
 	}
+
 	dt, err := imports.Process(f.Package, []byte(s), nil)
 	if err != nil {
 		logrus.Println("###########################")

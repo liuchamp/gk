@@ -135,7 +135,7 @@ func (sg *ServiceInitGenerator) Generate(name string) error {
 	}
 	exists = false
 	for _, v := range f.Methods {
-		if v.Name == "New" {
+		if v.Name == "NewBasicService" {
 			logrus.Infof("Service `%s` New function already exists so it will not be recreated", stub.Name)
 			exists = true
 		}
@@ -487,7 +487,6 @@ func (sg *ServiceInitGenerator) generateHttpTransportTesting(name string, iface 
 		parser.NamedTypeValue{},
 		`return jwttoken.NewJWTTokenString("############################",uid)`,
 		[]parser.NamedTypeValue{
-			parser.NewNameType("key", "string"),
 			parser.NewNameType("uid", "int64"),
 		},
 		[]parser.NamedTypeValue{
@@ -719,6 +718,7 @@ func (sg *ServiceInitGenerator) generateGRPCTransport(name string, iface *parser
 	type ProtobufModel struct {
 		Name    string
 		Methods []parser.Method
+		Structs []parser.Struct
 	}
 	pbModel := ProtobufModel{Name: utils.ToUpperFirstCamelCase(name)}
 	for _, v := range iface.Methods {
@@ -729,6 +729,7 @@ func (sg *ServiceInitGenerator) generateGRPCTransport(name string, iface *parser
 			} else if kv.Type == "int" {
 				kv.Type = "int32"
 			}
+			kv.Type = strings.ReplaceAll(kv.Type, "[]", "repeated ")
 			//利用 Method.Value 来传递 protobuf index，下标从 1 开始，由于 ctx 参数不用，则跨过 0 下标
 			kv.Value = fmt.Sprintf("%v", k)
 			kv.Name = utils.ToUpperFirstCamelCase(kv.Name)
@@ -740,6 +741,31 @@ func (sg *ServiceInitGenerator) generateGRPCTransport(name string, iface *parser
 			} else if kv.Type == "int" {
 				kv.Type = "int32"
 			}
+
+			if strings.Contains(kv.Type, "map") {
+				//map[string]string
+				tmp := strings.Split(kv.Type, "[")
+				tmp = strings.Split(tmp[1], "]")
+				mapKeyType := tmp[0]
+				mapValueType := tmp[1]
+				if strings.Contains(mapValueType, ".") {
+					tmp = strings.Split(mapValueType, ".")
+					mapValueType = tmp[1]
+					pbModel.Structs = append(pbModel.Structs, parser.NewStruct(mapValueType, nil))
+				}
+				kv.Type = fmt.Sprintf("map<%v,%v> ", mapKeyType, mapValueType)
+			} else if strings.Contains(kv.Type, "[]") {
+				var elementType string
+				if strings.Contains(kv.Type, ".") {
+					tmp := strings.Split(kv.Type, ".")
+					elementType = tmp[1]
+					pbModel.Structs = append(pbModel.Structs, parser.NewStruct(elementType, nil))
+					kv.Type = fmt.Sprintf("repeated %s ", elementType)
+				} else {
+					kv.Type = strings.ReplaceAll(kv.Type, "[]", "repeated ")
+				}
+			}
+
 			//利用 Method.Value 来传递 protobuf index，下标从 1 开始
 			kv.Value = fmt.Sprintf("%v", k+1)
 			kv.Name = utils.ToUpperFirstCamelCase(kv.Name)
@@ -1025,6 +1051,7 @@ func (sg *ServiceInitGenerator) generateEndpoints(name string, iface *parser.Int
 			n := strings.ToUpper(string(p.Name[0])) + p.Name[1:]
 			resultPrams = append(resultPrams, parser.NewNameType(n, p.Type))
 		}
+
 		req := parser.NewStruct(v.Name+"Req", reqPrams)
 		res := parser.NewStruct(v.Name+"Res", resultPrams)
 		file.Structs = append(file.Structs, req)
@@ -1066,17 +1093,6 @@ func (sg *ServiceInitGenerator) generateEndpoints(name string, iface *parser.Int
 			},
 		))
 
-		var (
-			reqPramsList string
-			resPramsList string
-		)
-		for _, v := range reqPrams {
-			reqPramsList += fmt.Sprintf("%v:%v,", v.Name, utils.ToLowerFirstCamelCase(v.Name))
-		}
-		for _, v := range resultPrams {
-			resPramsList += fmt.Sprintf("response.%v,", v.Name)
-		}
-		resPramsList = strings.TrimRight(resPramsList, ",")
 		//add interface method for set of endpoints
 		file.Methods = append(file.Methods, parser.NewMethod(
 			v.Name,
@@ -1085,11 +1101,16 @@ func (sg *ServiceInitGenerator) generateEndpoints(name string, iface *parser.Int
 			request := %sReq{%s}
 			resp, err := s.%sEndpoint(ctx, request)
 			if err != nil {
-				return nil, err
+				return %v
 			}
 			response := resp.(%sRes)
 			return %s 
-			`, v.Name, reqPramsList, utils.ToUpperFirstCamelCase(v.Name), utils.ToUpperFirstCamelCase(v.Name), resPramsList),
+			`, v.Name,
+				ToReqList(reqPrams),
+				utils.ToUpperFirstCamelCase(v.Name),
+				ToErrResList(resultPrams),
+				utils.ToUpperFirstCamelCase(v.Name),
+				ToResList(resultPrams)),
 			v.Parameters,
 			v.Results,
 		))
@@ -1439,4 +1460,45 @@ func (sg *ServiceInitGenerator) generateServiceLoggingMiddleware(name string, if
 		)
 	}
 	return defaultFs.WriteFile(sfile, file.String(), false)
+}
+
+func ToReqList(params []parser.NamedTypeValue) (list string) {
+	for _, v := range params {
+		list += fmt.Sprintf("%v:%v,", v.Name, utils.ToLowerFirstCamelCase(v.Name))
+	}
+	return
+}
+
+func ToResList(params []parser.NamedTypeValue) (list string) {
+	for _, v := range params {
+		list += fmt.Sprintf("response.%v,", v.Name)
+	}
+	list = strings.TrimRight(list, ",")
+	return
+}
+
+func ToErrResList(params []parser.NamedTypeValue) (list string) {
+	for _, v := range params {
+		list += fmt.Sprintf("%v,", getEmptyExpOfTypeName(v.Type))
+	}
+	list = strings.TrimSpace(list)
+	list = strings.TrimRight(list, ",")
+	list = strings.TrimLeft(list, ",")
+	return
+}
+
+func getEmptyExpOfTypeName(typeName string) string {
+	if typeName == "error" {
+		return "err"
+	}
+	if strings.Contains(typeName, "[]") || strings.Contains(typeName, "map") || strings.Contains(typeName, "chan") {
+		return "nil"
+	}
+	switch typeName {
+	case "string":
+		return `""`
+	case "byte", "uint8", "uint16", "uint", "uint32", "uint64", "int8", "int16", "int", "int32", "int64", "float32":
+		return "0"
+	}
+	return typeName + "{}"
 }

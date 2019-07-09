@@ -5,6 +5,14 @@ service {{.Name}} {
 {{range $i,$v := .Methods}}    rpc {{$v.Name}} ({{$v.Name}}Req) returns ({{$v.Name}}Res) {}
 {{end}}}
 
+
+{{range $i,$v := .Structs}}
+message {{$v.Name}} {
+
+}
+{{end}}
+
+
 {{range $i,$v := .Methods}}
 message {{$v.Name}}Req {
 {{range $k,$kv := $v.Parameters}}     {{$kv.Type}} {{$kv.Name}} = {{$kv.Value}};{{end}}

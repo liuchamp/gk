@@ -8,7 +8,6 @@ import (
 	"go/format"
 	"go/parser"
 	"go/token"
-	"strings"
 )
 
 type Parser interface {
@@ -164,34 +163,30 @@ func (fp *FileParser) parseConstants(ds []ast.Spec) []NamedTypeValue {
 			logrus.Debug("Spec type not  Ident type, odd, skipping")
 			continue
 		}
-		constants = append(constants, NewNameTypeValue(tp.Name, vsp.Names[0].Name, bd))
+		constants = append(constants, NewNameTypeValue(vsp.Names[0].Name, tp.Name, bd))
 	}
 	return constants
 }
 func (fp *FileParser) parseFieldListAsNamedTypes(list *ast.FieldList) []NamedTypeValue {
 	ntv := []NamedTypeValue{}
 	if list != nil {
-		for i, p := range list.List {
+		for _, p := range list.List {
 			typ := fp.getTypeFromExp(p.Type)
 			logrus.Debug(fmt.Sprintf("Type %s", typ))
-
 			// Potentially N names
 			var names []string
 			for _, ident := range p.Names {
 				names = append(names, ident.Name)
 			}
 			if len(names) == 0 {
-				// Anonymous named type, give it a default name
-				if strings.HasPrefix(typ, "[]") {
-					names = append(names, typ[2:3]+fmt.Sprintf("%d", i))
-				} else {
-					names = append(names, typ[:1]+fmt.Sprintf("%d", i))
-				}
-			}
-			for _, name := range names {
-				namedType := NewNameType(name, typ)
-				logrus.Debug(fmt.Sprintf("NamedType %+v", namedType))
+				namedType := NewNameType("", typ)
 				ntv = append(ntv, namedType)
+			} else {
+				for _, name := range names {
+					namedType := NewNameType(name, typ)
+					logrus.Debug(fmt.Sprintf("NamedType %+v", namedType))
+					ntv = append(ntv, namedType)
+				}
 			}
 		}
 	}
@@ -216,6 +211,8 @@ func (fp *FileParser) getTypeFromExp(e ast.Expr) string {
 		key := fp.getTypeFromExp(k.Key)
 		value := fp.getTypeFromExp(k.Value)
 		tp = "map[" + key + "]" + value
+	case *ast.InterfaceType:
+		tp = "interface{}"
 	default:
 		logrus.Info("Type Expresion not supported")
 		return ""
