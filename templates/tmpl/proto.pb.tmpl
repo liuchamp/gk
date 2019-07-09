@@ -1,24 +1,14 @@
 syntax = "proto3";
-package {{toSnakeCase .Name}}pb;
-// The {{.Name}} service definition.
-service {{.Name}} {
+package {{toSnakeCase .PackageName}};
+// The {{.PackageName}} service definition.
+service {{.ServiceName}} {
 {{range $i,$v := .Methods}}    rpc {{$v.Name}} ({{$v.Name}}Req) returns ({{$v.Name}}Res) {}
 {{end}}}
 
 
-{{range $i,$v := .Structs}}
-message {{$v.Name}} {
-
+{{range $m,$n := .Messages}}
+message {{$n.Name}} {
+{{range $k,$v := $n.Vars}}     {{$v.Type}} {{$v.Name}} = {{$v.Value}};{{end}}
 }
 {{end}}
 
-
-{{range $i,$v := .Methods}}
-message {{$v.Name}}Req {
-{{range $k,$kv := $v.Parameters}}     {{$kv.Type}} {{$kv.Name}} = {{$kv.Value}};{{end}}
-}
-
-message {{$v.Name}}Res {
-{{range $k,$kv := $v.Results}}    {{$kv.Type}} {{$kv.Name}} = {{$kv.Value}};{{end}}
-}
-{{end}}

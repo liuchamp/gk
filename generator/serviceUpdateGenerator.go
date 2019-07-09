@@ -3,6 +3,7 @@ package generator
 import (
 	"errors"
 	"fmt"
+	"runtime"
 	"strings"
 
 	"github.com/sirupsen/logrus"
@@ -495,7 +496,7 @@ func (sg *ServiceUpdateGenerator) generateEndpoints(name string, iface *parser.I
 			{
 				method := "%s"
 				%sEndpoint = Make%sEndpoint(svc)
-	            %sEndpoint = ratelimit.NewErroringLimiter(rate.NewLimiter(rate.Every(time.Second), 1))(%sEndpoint)
+	            %sEndpoint = ratelimit.NewErroringLimiter(rate.NewLimiter(rate.Every(time.Second), 10000))(%sEndpoint)
 				%sEndpoint = circuitbreaker.Gobreaker(gobreaker.NewCircuitBreaker(gobreaker.Settings{}))(%sEndpoint)
 				%sEndpoint = opentracing.TraceServer(otTracer, method)(%sEndpoint)
 				%sEndpoint = zipkin.TraceEndpoint(zipkinTracer,  method)(%sEndpoint)
@@ -702,4 +703,140 @@ func (sg *ServiceUpdateGenerator) generateHttpTransportTesting(name string, ifac
 	}
 
 	return defaultFs.WriteFile(tfile, handlerFile.String(), false)
+}
+
+func (sg *ServiceUpdateGenerator) generateGRPCTransport(name string, iface *parser.Interface) error {
+	logrus.Info("Updating grpc transport...")
+	te := template.NewEngine()
+	defaultFs := fs.Get()
+
+	path, err := te.ExecuteString(viper.GetString("pb.path"), map[string]string{
+		"ServiceName": name,
+		//"TransportType": "grpc",
+	})
+
+	//path += defaultFs.FilePathSeparator() + "pb"
+	//if err != nil {
+	//	return err
+	//}
+	b, err := defaultFs.Exists(path)
+	if err != nil {
+		return err
+	}
+	fname := utils.ToLowerSnakeCase(name)
+	tfile := path + defaultFs.FilePathSeparator() + fname + ".proto"
+	if b {
+		fex, err := defaultFs.Exists(tfile)
+		if err != nil {
+			return err
+		}
+		if fex {
+			logrus.Errorf("Proto for service `%s` exist", name)
+			return nil
+		}
+	} else {
+		err = defaultFs.MkdirAll(path)
+		if err != nil {
+			return err
+		}
+	}
+
+	type ProtobufModel struct {
+		Name    string
+		Methods []parser.Method
+		Structs []parser.Struct
+	}
+	pbModel := ProtobufModel{Name: utils.ToUpperFirstCamelCase(name)}
+	for _, v := range iface.Methods {
+		m := parser.Method{Name: v.Name}
+		for k, kv := range v.Parameters {
+			if kv.Type == "context.Context" {
+				continue
+			} else if kv.Type == "int" {
+				kv.Type = "int32"
+			}
+			kv.Type = strings.ReplaceAll(kv.Type, "[]", "repeated ")
+			//利用 Method.Value 来传递 protobuf index，下标从 1 开始，由于 ctx 参数不用，则跨过 0 下标
+			kv.Value = fmt.Sprintf("%v", k)
+			kv.Name = utils.ToUpperFirstCamelCase(kv.Name)
+			m.Parameters = append(m.Parameters, kv)
+		}
+		for k, kv := range v.Results {
+			if kv.Type == "error" {
+				kv.Type = "string"
+			} else if kv.Type == "int" {
+				kv.Type = "int32"
+			}
+
+			if strings.Contains(kv.Type, "map") {
+				//map[string]string
+				tmp := strings.Split(kv.Type, "[")
+				tmp = strings.Split(tmp[1], "]")
+				mapKeyType := tmp[0]
+				mapValueType := tmp[1]
+				if strings.Contains(mapValueType, ".") {
+					tmp = strings.Split(mapValueType, ".")
+					mapValueType = tmp[1]
+					pbModel.Structs = append(pbModel.Structs, parser.NewStruct(mapValueType, nil))
+				}
+				kv.Type = fmt.Sprintf("map<%v,%v> ", mapKeyType, mapValueType)
+			} else if strings.Contains(kv.Type, "[]") {
+				var elementType string
+				if strings.Contains(kv.Type, ".") {
+					tmp := strings.Split(kv.Type, ".")
+					elementType = tmp[1]
+					pbModel.Structs = append(pbModel.Structs, parser.NewStruct(elementType, nil))
+					kv.Type = fmt.Sprintf("repeated %s ", elementType)
+				} else {
+					kv.Type = strings.ReplaceAll(kv.Type, "[]", "repeated ")
+				}
+			}
+
+			//利用 Method.Value 来传递 protobuf index，下标从 1 开始
+			kv.Value = fmt.Sprintf("%v", k+1)
+			kv.Name = utils.ToUpperFirstCamelCase(kv.Name)
+			m.Results = append(m.Results, kv)
+		}
+		pbModel.Methods = append(pbModel.Methods, m)
+	}
+
+	protoTmpl, err := te.Execute("proto.pb", pbModel)
+	if err != nil {
+		return err
+	}
+	err = defaultFs.WriteFile(tfile, protoTmpl, false)
+	if err != nil {
+		return err
+	}
+	if runtime.GOOS == "windows" {
+		tfile := path + defaultFs.FilePathSeparator() + "compile.bat"
+		cmpTmpl, err := te.Execute("proto_compile.bat", map[string]string{
+			"Name": fname,
+		})
+		if err != nil {
+			return err
+		}
+		logrus.Warn("--------------------------------------------------------------------")
+		logrus.Warn("The service is still not ready!!")
+		logrus.Warn("To create the grpc transport please create your protobuf.")
+		logrus.Warn("Than follow the instructions in compile.bat and compile the .proto file.")
+		logrus.Warnf("After the file is compiled run `gk init grpc %s`.", name)
+		logrus.Warn("--------------------------------------------------------------------")
+		return defaultFs.WriteFile(tfile, cmpTmpl, false)
+	} else {
+		tfile := path + defaultFs.FilePathSeparator() + "compile.sh"
+		cmpTmpl, err := te.Execute("proto_compile.sh", map[string]string{
+			"Name": fname,
+		})
+		if err != nil {
+			return err
+		}
+		logrus.Warn("--------------------------------------------------------------------")
+		logrus.Warn("The service is still not ready!!")
+		logrus.Warn("To create the grpc transport please create your protobuf.")
+		logrus.Warn("Than follow the instructions in compile.sh and compile the .proto file.")
+		logrus.Warnf("After the file is compiled run `gk init grpc %s`.", name)
+		logrus.Warn("--------------------------------------------------------------------")
+		return defaultFs.WriteFile(tfile, cmpTmpl, false)
+	}
 }

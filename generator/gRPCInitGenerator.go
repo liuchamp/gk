@@ -179,7 +179,7 @@ func (sg *GRPCInitGenerator) Generate(name string) error {
 		`NewGRPCClient makes a set of endpoints available as a gRPC client.`,
 		parser.NamedTypeValue{},
 		fmt.Sprintf(`
-		limiter := ratelimit.NewErroringLimiter(rate.NewLimiter(rate.Every(time.Second), 100))
+		limiter := ratelimit.NewErroringLimiter(rate.NewLimiter(rate.Every(time.Second), 10000))
 		zipkinClient := zipkin.GRPCClientTrace(zipkinTracer)
 		options := []grpctransport.ClientOption{
 			zipkinClient,

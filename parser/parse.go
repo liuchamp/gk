@@ -16,6 +16,9 @@ type Parser interface {
 
 type FileParser struct{}
 
+func NewFileParser() *FileParser {
+	return &FileParser{}
+}
 func (fp *FileParser) Parse(src []byte) (*File, error) {
 	f := NewFile()
 	// Create the AST by parsing src.
@@ -237,7 +240,4 @@ func (fp *FileParser) parseFieldListAsMethods(list *ast.FieldList) []Method {
 		}
 	}
 	return mth
-}
-func NewFileParser() *FileParser {
-	return &FileParser{}
 }

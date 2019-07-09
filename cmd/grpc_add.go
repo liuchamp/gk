@@ -16,7 +16,7 @@ var grpc_addCmd = &cobra.Command{
 			return
 		}
 		g := generator.NewAddGRPCGenerator()
-		err := g.Generate(args[0])
+		err := g.GenerateProtobuf(args[0])
 		if err != nil {
 			logrus.Error(err)
 			return
