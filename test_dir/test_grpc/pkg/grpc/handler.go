@@ -7,7 +7,6 @@ import (
 	grpctransport "github.com/go-kit/kit/transport/grpc"
 	"github.com/yiv/gk/test_dir/test_grpc/pkg/endpoints"
 	"github.com/yiv/gk/test_dir/test_grpc/pkg/grpc/pb"
-	oldcontext "golang.org/x/net/context"
 )
 
 type grpcServer struct {
@@ -44,7 +43,7 @@ func EncodeGRPCFooResponse(_ context.Context, grpcReply interface{}) (res interf
 	return res, err
 }
 
-func (s *grpcServer) Foo(ctx oldcontext.Context, req *pb.FooRequest) (rep *pb.FooReply, err error) {
+func (s *grpcServer) Foo(ctx context.Context, req *pb.FooRequest) (rep *pb.FooReply, err error) {
 	_, rp, err := s.foo.ServeGRPC(ctx, req)
 	if err != nil {
 		return nil, err

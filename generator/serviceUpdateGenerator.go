@@ -24,32 +24,38 @@ func NewServiceUpdateGenerator() *ServiceUpdateGenerator {
 }
 
 func (sg *ServiceUpdateGenerator) Generate(name string) error {
+	logrus.Info("Updating grpc transport for service ", name)
 	te := template.NewEngine()
 	defaultFs := fs.Get()
 	path, err := te.ExecuteString(viper.GetString("service.path"), map[string]string{
 		"ServiceName": name,
 	})
 	if err != nil {
+		logrus.Error(err)
 		return err
 	}
 	fname, err := te.ExecuteString(viper.GetString("service.file_name"), map[string]string{
 		"ServiceName": name,
 	})
 	if err != nil {
+		logrus.Error(err)
 		return err
 	}
 	sfile := path + defaultFs.FilePathSeparator() + fname
 	b, err := defaultFs.Exists(sfile)
 	if err != nil {
+		logrus.Error(err)
 		return err
 	}
 	iname, err := te.ExecuteString(viper.GetString("service.interface_name"), map[string]string{
 		"ServiceName": name,
 	})
 	if err != nil {
+		logrus.Error(err)
 		return err
 	}
 	if !b {
+		logrus.Error(sfile, name)
 		return errors.New(fmt.Sprintf("Service %s was not found", name))
 	}
 	transport := viper.GetString("gk_transport")
@@ -66,10 +72,12 @@ func (sg *ServiceUpdateGenerator) Generate(name string) error {
 	p := parser.NewFileParser()
 	s, err := defaultFs.ReadFile(sfile)
 	if err != nil {
+		logrus.Error(err)
 		return err
 	}
 	f, err := p.Parse([]byte(s))
 	if err != nil {
+		logrus.Error(err)
 		return err
 	}
 
@@ -118,6 +126,7 @@ func (sg *ServiceUpdateGenerator) Generate(name string) error {
 		"ServiceName": name,
 	})
 	if err != nil {
+		logrus.Error(err)
 		return err
 	}
 	stub := parser.NewStructWithComment(stubName,
@@ -182,26 +191,32 @@ func (sg *ServiceUpdateGenerator) Generate(name string) error {
 	}
 	d, err := imports.Process("g", []byte(s), nil)
 	if err != nil {
+		logrus.Error(err)
 		return err
 	}
 	err = defaultFs.WriteFile(sfile, string(d), true)
 	if err != nil {
+		logrus.Error(err)
 		return err
 	}
 	err = sg.generateServiceLoggingMiddleware(name, iface)
 	if err != nil {
+		logrus.Error(err)
 		return err
 	}
 	err = sg.generateServiceInstrumentingMiddleware(name, iface)
 	if err != nil {
+		logrus.Error(err)
 		return err
 	}
 	err = sg.generateEndpoints(name, iface)
 	if err != nil {
+		logrus.Error(err)
 		return err
 	}
 	err = sg.generateTransport(name, iface, transport)
 	if err != nil {
+		logrus.Error(err)
 		return err
 	}
 	return nil

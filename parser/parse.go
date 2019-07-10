@@ -94,7 +94,7 @@ func (fp *FileParser) parseType(ds []ast.Spec, f *File) {
 			str := NewStruct(tsp.Name.Name, fp.parseFieldListAsNamedTypes(st.Fields))
 			f.Structs = append(f.Structs, str)
 		default:
-			logrus.Info("Skipping unknown type")
+			logrus.Info("Skipping unknown type - ", fmt.Sprintf("%v", tsp.Name.Name))
 		}
 	}
 }

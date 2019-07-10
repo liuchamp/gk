@@ -22,7 +22,7 @@ var updateCmd = &cobra.Command{
 		gen := generator.NewServiceUpdateGenerator()
 		err := gen.Generate(args[0])
 		if err != nil {
-			logrus.Error(err)
+			logrus.Error(err, args)
 			return
 		}
 	},

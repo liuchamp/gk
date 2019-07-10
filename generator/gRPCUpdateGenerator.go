@@ -9,19 +9,18 @@ import (
 	"github.com/yiv/gk/parser"
 	template "github.com/yiv/gk/templates"
 	"github.com/yiv/gk/utils"
-	"os"
 	"strings"
 )
 
-type GRPCInitGenerator struct {
+type GRPCUpdateGenerator struct {
 }
 
-func NewGRPCInitGenerator() *GRPCInitGenerator {
-	return &GRPCInitGenerator{}
+func NewGRPCUpdateGenerator() *GRPCUpdateGenerator {
+	return &GRPCUpdateGenerator{}
 }
 
-func (sg *GRPCInitGenerator) Generate(name string) error {
-	logrus.Info("Init grpc transport for service ", name)
+func (sg *GRPCUpdateGenerator) Generate(name string) error {
+	logrus.Info("Updating grpc transport for service ", name)
 	te := template.NewEngine()
 	defaultFs := fs.Get()
 	path, err := te.ExecuteString(viper.GetString("service.path"), map[string]string{
@@ -55,13 +54,13 @@ func (sg *GRPCInitGenerator) Generate(name string) error {
 	if err != nil {
 		return err
 	}
-	f, err := p.Parse([]byte(s))
+	svcFile, err := p.Parse([]byte(s))
 	if err != nil {
 		return err
 	}
 
 	var iface *parser.Interface
-	for _, v := range f.Interfaces {
+	for _, v := range svcFile.Interfaces {
 		if v.Name == iname {
 			iface = &v
 		}
@@ -112,128 +111,60 @@ func (sg *GRPCInitGenerator) Generate(name string) error {
 	if !b {
 		return errors.New("Could not find the compiled pb of the service")
 	}
-	gosrc := utils.GetGOPATH() + "/src/"
-	gosrc = strings.Replace(gosrc, "\\", "/", -1)
-	pwd, err := os.Getwd()
-	if err != nil {
-		return err
-	}
-	if viper.GetString("gk_folder") != "" {
-		pwd += "/" + viper.GetString("gk_folder")
-	}
-	pwd = strings.Replace(pwd, "\\", "/", -1)
-	projectPath := strings.Replace(pwd, gosrc, "", 1)
-	pbImport := projectPath + "/" + path
-	pbImport = strings.Replace(pbImport, "\\", "/", -1)
-	enpointsPath, err := te.ExecuteString(viper.GetString("endpoints.path"), map[string]string{
+
+	path, err = te.ExecuteString(viper.GetString("grpctransport.path"), map[string]string{
 		"ServiceName": name,
 	})
 	if err != nil {
 		return err
 	}
-	enpointsPath = strings.Replace(enpointsPath, "\\", "/", -1)
-	endpointsImport := projectPath + "/" + enpointsPath
-	handler := parser.NewFile()
-	handler.Package = fmt.Sprintf("%stransport", name)
-	handler.Imports = []parser.NamedTypeValue{
-		parser.NewNameType("", "\"context\""),
-		parser.NewNameType("", "\"errors\"\n"),
-		parser.NewNameType("stdzipkin", `"github.com/openzipkin/zipkin-go"`),
-		parser.NewNameType("stdopentracing", "\"github.com/opentracing/opentracing-go\""),
-		parser.NewNameType("", "\"google.golang.org/grpc\""),
-		parser.NewNameType("jujuratelimit", "\"github.com/juju/ratelimit\"\n"),
-		parser.NewNameType("grpctransport", "\"github.com/go-kit/kit/transport/grpc\""),
-		parser.NewNameType("", "\"github.com/go-kit/kit/ratelimit\""),
-		parser.NewNameType("", "\"github.com/go-kit/kit/tracing/opentracing\""),
-		parser.NewNameType("", "\"github.com/go-kit/kit/endpoint\""),
-		parser.NewNameType("", "\"github.com/go-kit/kit/auth/jwt\""),
-		parser.NewNameType("", "\"github.com/go-kit/kit/log\"\n"),
-		parser.NewNameType("", fmt.Sprintf("\"%s\"", pbImport)),
-		parser.NewNameType("", fmt.Sprintf("\"%s\"", endpointsImport)),
+	fname, err = te.ExecuteString(viper.GetString("grpctransport.file_name"), map[string]string{
+		"ServiceName": name,
+	})
+	if err != nil {
+		return err
 	}
-	grpcStruct := parser.NewStruct("grpcServer", []parser.NamedTypeValue{})
-	//NewGRPCServer
-	handler.Methods = append(handler.Methods, parser.NewMethodWithComment(
-		"NewGRPCServer",
-		`NewGRPCServer makes a set of endpoints available as a gRPC server.`,
-		parser.NamedTypeValue{},
-		`
-		zipkinServer := zipkin.GRPCServerTrace(zipkinTracer)
-		options := []grpctransport.ServerOption{
-			grpctransport.ServerErrorHandler(transport.NewLogErrorHandler(logger)),
-			zipkinServer,
+	sfile = path + defaultFs.FilePathSeparator() + fname
+
+	s, err = defaultFs.ReadFile(sfile)
+	if err != nil {
+		return err
+	}
+	var handler *parser.File
+	handler, err = p.Parse([]byte(s))
+	if err != nil {
+		return err
+	}
+
+	var grpcServer *parser.Struct
+	for k, v := range handler.Structs {
+		if v.Name == "grpcServer" {
+			grpcServer = &handler.Structs[k]
+			break
 		}
-		gs := &grpcServer{}`,
-		[]parser.NamedTypeValue{
-			parser.NewNameType("endpoints", fmt.Sprintf("%sendpoint.Set", name)),
-			parser.NewNameType("otTracer", "stdopentracing.Tracer"),
-			parser.NewNameType("zipkinTracer", "*stdzipkin.Tracer"),
-			parser.NewNameType("logger", "log.Logger"),
-		},
-		[]parser.NamedTypeValue{
-			parser.NewNameType("", fmt.Sprintf("%spb.%sServer", name, utils.ToUpperFirstCamelCase(name))),
-		},
-	))
-	//NewGRPCClient
-	handler.Methods = append(handler.Methods, parser.NewMethodWithComment(
-		"NewGRPCClient",
-		`NewGRPCClient makes a set of endpoints available as a gRPC client.`,
-		parser.NamedTypeValue{},
-		fmt.Sprintf(`
-		limiter := ratelimit.NewErroringLimiter(rate.NewLimiter(rate.Every(time.Second), 10000))
-		zipkinClient := zipkin.GRPCClientTrace(zipkinTracer)
-		options := []grpctransport.ClientOption{
-			zipkinClient,
-		}
-		set := %sendpoint.Set{}
-		`, name),
-		[]parser.NamedTypeValue{
-			parser.NewNameType("conn", "*grpc.ClientConn"),
-			parser.NewNameType("otTracer", "stdopentracing.Tracer"),
-			parser.NewNameType("zipkinTracer", "*stdzipkin.Tracer"),
-			parser.NewNameType("logger", "log.Logger"),
-		},
-		[]parser.NamedTypeValue{
-			parser.NewNameType("", fmt.Sprintf("%sservice.Service", utils.ToLowerFirstCamelCase(name))),
-		},
-	))
-	handler.Methods = append(handler.Methods, parser.NewMethodWithComment(
-		"str2err",
-		`str2err `,
-		parser.NamedTypeValue{},
-		fmt.Sprintf(`
-		if s == "" {
-			return nil
-		}
-		return errors.New(s)
-		`),
-		[]parser.NamedTypeValue{
-			parser.NewNameType("s", "string"),
-		},
-		[]parser.NamedTypeValue{
-			parser.NewNameType("", "error"),
-		},
-	))
-	handler.Methods = append(handler.Methods, parser.NewMethodWithComment(
-		"err2str",
-		`err2str `,
-		parser.NamedTypeValue{},
-		fmt.Sprintf(`
-		if err == nil {
-			return ""
-		}
-		return err.Error()
-		`),
-		[]parser.NamedTypeValue{
-			parser.NewNameType("err", "error"),
-		},
-		[]parser.NamedTypeValue{
-			parser.NewNameType("", "string"),
-		},
-	))
+	}
+	handler.Methods[0].Body = strings.ReplaceAll(handler.Methods[0].Body, "return gs", "")
+	handler.Methods[1].Body = strings.ReplaceAll(handler.Methods[1].Body, "return set", "")
+
+	if grpcServer == nil {
+		err = errors.New("Could not find grpcStruct")
+		logrus.Error(err)
+		return err
+	}
+
 	for _, v := range iface.Methods {
+		var isExist bool
+		for _, vv := range grpcServer.Vars {
+			if vv.Name == utils.ToLowerFirstCamelCase(v.Name) {
+				isExist = true
+				break
+			}
+		}
+		if isExist {
+			continue
+		}
 		//add member to grpcServer
-		grpcStruct.Vars = append(grpcStruct.Vars, parser.NewNameType(
+		grpcServer.Vars = append(grpcServer.Vars, parser.NewNameType(
 			utils.ToLowerFirstCamelCase(v.Name),
 			"grpctransport.Handler",
 		))
@@ -359,6 +290,7 @@ func (sg *GRPCInitGenerator) Generate(name string) error {
 				parser.NewNameType("", "error"),
 			},
 		))
+
 		//add interface method
 		handler.Methods = append(handler.Methods, parser.NewMethod(
 			v.Name,
@@ -440,20 +372,6 @@ func (sg *GRPCInitGenerator) Generate(name string) error {
 	handler.Methods[1].Body += `
 	return set`
 
-	handler.Structs = append(handler.Structs, grpcStruct)
-	path, err = te.ExecuteString(viper.GetString("grpctransport.path"), map[string]string{
-		"ServiceName": name,
-	})
-	if err != nil {
-		return err
-	}
-	fname, err = te.ExecuteString(viper.GetString("grpctransport.file_name"), map[string]string{
-		"ServiceName": name,
-	})
-	if err != nil {
-		return err
-	}
-	sfile = path + defaultFs.FilePathSeparator() + fname
 	err = defaultFs.WriteFile(sfile, handler.String(), false)
 	if err != nil {
 		return err

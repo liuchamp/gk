@@ -139,7 +139,7 @@ func (sg *AddGRPCGenerator) GenerateProtobuf(name string) (err error) {
 	}
 
 	pbModel := &parser.Proto{PackageName: fmt.Sprintf("%vpb", name), ServiceName: utils.ToUpperFirstCamelCase(name)}
-	pbModel = TranferToPBModel(pbModel, iface)
+	pbModel = TransferToPBModel(pbModel, iface)
 
 	protoTmpl, err := te.Execute("proto.pb", pbModel)
 	if err != nil {
@@ -197,7 +197,7 @@ func (sg *AddGRPCGenerator) UpdateProtobuf(name string, iface *parser.Interface,
 		return err
 	}
 
-	pbModel = TranferToPBModel(pbModel, iface)
+	pbModel = TransferToPBModel(pbModel, iface)
 
 	protoTmpl, err := te.Execute("proto.pb", pbModel)
 	if err != nil {
@@ -210,7 +210,7 @@ func (sg *AddGRPCGenerator) UpdateProtobuf(name string, iface *parser.Interface,
 	return nil
 }
 
-func TranferToPBModel(pbModel *parser.Proto, iface *parser.Interface) *parser.Proto {
+func TransferToPBModel(pbModel *parser.Proto, iface *parser.Interface) *parser.Proto {
 	for _, v := range iface.Methods {
 		var isExist bool
 		for _, vv := range pbModel.Methods {
