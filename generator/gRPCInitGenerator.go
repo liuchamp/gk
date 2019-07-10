@@ -37,7 +37,7 @@ func (sg *GRPCInitGenerator) Generate(name string) error {
 		return err
 	}
 	sfile := path + defaultFs.FilePathSeparator() + fname
-	b, err := defaultFs.Exists(sfile)
+	exist, err := defaultFs.Exists(sfile)
 	if err != nil {
 		return err
 	}
@@ -47,7 +47,7 @@ func (sg *GRPCInitGenerator) Generate(name string) error {
 	if err != nil {
 		return err
 	}
-	if !b {
+	if !exist {
 		return errors.New(fmt.Sprintf("Service %s was not found", name))
 	}
 	p := parser.NewFileParser()
@@ -98,18 +98,16 @@ func (sg *GRPCInitGenerator) Generate(name string) error {
 	if len(iface.Methods) == 0 {
 		return errors.New("The service has no method please implement the interface methods")
 	}
-	path, err = te.ExecuteString(viper.GetString("pb.path"), map[string]string{
-		"ServiceName": name,
-	})
-	if err != nil {
+	if path, err = te.ExecuteString(viper.GetString("pb.path"), map[string]string{"ServiceName": name}); err != nil {
 		return err
 	}
+
 	sfile = path + defaultFs.FilePathSeparator() + utils.ToLowerSnakeCase(name) + ".pb.go"
-	b, err = defaultFs.Exists(sfile)
+	exist, err = defaultFs.Exists(sfile)
 	if err != nil {
 		return err
 	}
-	if !b {
+	if !exist {
 		return errors.New("Could not find the compiled pb of the service")
 	}
 	gosrc := utils.GetGOPATH() + "/src/"
@@ -125,9 +123,7 @@ func (sg *GRPCInitGenerator) Generate(name string) error {
 	projectPath := strings.Replace(pwd, gosrc, "", 1)
 	pbImport := projectPath + "/" + path
 	pbImport = strings.Replace(pbImport, "\\", "/", -1)
-	enpointsPath, err := te.ExecuteString(viper.GetString("endpoints.path"), map[string]string{
-		"ServiceName": name,
-	})
+	enpointsPath, err := te.ExecuteString(viper.GetString("endpoints.path"), map[string]string{"ServiceName": name})
 	if err != nil {
 		return err
 	}
@@ -151,6 +147,26 @@ func (sg *GRPCInitGenerator) Generate(name string) error {
 		parser.NewNameType("", fmt.Sprintf("\"%s\"", pbImport)),
 		parser.NewNameType("", fmt.Sprintf("\"%s\"", endpointsImport)),
 	}
+
+	{
+		if path, err = te.ExecuteString(viper.GetString("grpctransport.path"), map[string]string{"ServiceName": name}); err != nil {
+			return err
+		}
+		if fname, err = te.ExecuteString(viper.GetString("grpctransport.file_name"), map[string]string{"ServiceName": name}); err != nil {
+			return err
+		}
+		sfile = path + defaultFs.FilePathSeparator() + fname
+		exist, err = defaultFs.Exists(sfile)
+		if err != nil {
+			return err
+		}
+		if exist {
+			g := NewGRPCUpdateGenerator()
+			err = g.Generate(name)
+			return nil
+		}
+	}
+
 	grpcStruct := parser.NewStruct("grpcServer", []parser.NamedTypeValue{})
 	//NewGRPCServer
 	handler.Methods = append(handler.Methods, parser.NewMethodWithComment(
@@ -441,19 +457,7 @@ func (sg *GRPCInitGenerator) Generate(name string) error {
 	return set`
 
 	handler.Structs = append(handler.Structs, grpcStruct)
-	path, err = te.ExecuteString(viper.GetString("grpctransport.path"), map[string]string{
-		"ServiceName": name,
-	})
-	if err != nil {
-		return err
-	}
-	fname, err = te.ExecuteString(viper.GetString("grpctransport.file_name"), map[string]string{
-		"ServiceName": name,
-	})
-	if err != nil {
-		return err
-	}
-	sfile = path + defaultFs.FilePathSeparator() + fname
+
 	err = defaultFs.WriteFile(sfile, handler.String(), false)
 	if err != nil {
 		return err

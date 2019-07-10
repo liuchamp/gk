@@ -81,6 +81,23 @@ func (sg *ServiceInitGenerator) Generate(name string) error {
 	if iface == nil {
 		return errors.New(fmt.Sprintf("Could not find the service interface in `%s`", sfile))
 	}
+
+	{
+		var isSvcExist bool
+		for _, v := range f.Structs {
+			if v.Name == "basicService" {
+				isSvcExist = true
+				break
+			}
+		}
+
+		if isSvcExist {
+			updateGen := NewServiceUpdateGenerator()
+			err = updateGen.Generate(name)
+			return err
+		}
+	}
+
 	toKeep := []parser.Method{}
 	for _, v := range iface.Methods {
 		isOk := false
