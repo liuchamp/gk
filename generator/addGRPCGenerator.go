@@ -230,15 +230,18 @@ func TransferToPBModel(pbModel *parser.Proto, iface *parser.Interface) *parser.P
 		for k, kv := range v.Parameters {
 			if kv.Type == "context.Context" {
 				continue
-			} else if kv.Type == "int" {
-				kv.Type = "int32"
 			}
-			if strings.Contains(kv.Type, "[]") {
-				kv.Type = strings.ReplaceAll(kv.Type, "[]", "repeated ")
-			}
-			if strings.Contains(kv.Type, ".") {
-				temp := strings.Split(kv.Type, ".")
-				kv.Type = temp[1]
+
+			var otherMessages []parser.Struct
+			kv.Type, otherMessages = ParseToPBType(kv.Type)
+			if len(otherMessages) > 0 {
+				for _, ov := range otherMessages {
+					if isExist := IsMessageExist(pbModel.Messages, ov); isExist {
+						continue
+					} else {
+						pbModel.Messages = append(pbModel.Messages, parser.NewStruct(ov.Name, nil))
+					}
+				}
 			}
 
 			//利用 Method.Value 来传递 protobuf index，下标从 1 开始，由于 ctx 参数不用，则跨过 0 下标
@@ -247,43 +250,15 @@ func TransferToPBModel(pbModel *parser.Proto, iface *parser.Interface) *parser.P
 			msgReq.Vars = append(msgReq.Vars, kv)
 		}
 		for k, kv := range v.Results {
-			if kv.Type == "error" {
-				kv.Type = "string"
-			} else if kv.Type == "int" {
-				kv.Type = "int32"
-			}
-
-			if strings.Contains(kv.Type, "map") {
-				//map[string]string
-				tmp := strings.Split(kv.Type, "[")
-				tmp = strings.Split(tmp[1], "]")
-				mapKeyType := tmp[0]
-				mapValueType := tmp[1]
-				if strings.Contains(mapValueType, ".") {
-					tmp = strings.Split(mapValueType, ".")
-					mapValueType = tmp[1]
-					pbModel.Messages = append(pbModel.Messages, parser.NewStruct(mapValueType, nil))
-				}
-				kv.Type = fmt.Sprintf("map<%v,%v> ", mapKeyType, mapValueType)
-			} else if strings.Contains(kv.Type, "[]") {
-				var elementType string
-				if strings.Contains(kv.Type, ".") {
-					tmp := strings.Split(kv.Type, ".")
-					elementType = tmp[1]
-					pbModel.Messages = append(pbModel.Messages, parser.NewStruct(elementType, nil))
-					kv.Type = fmt.Sprintf("repeated %s ", elementType)
-				} else {
-					kv.Type = strings.ReplaceAll(kv.Type, "[]", "repeated ")
-				}
-			} else {
-				if strings.Contains(kv.Type, ".") {
-					tmp := strings.Split(kv.Type, ".")
-					elementType := tmp[1]
-					pbModel.Messages = append(pbModel.Messages, parser.NewStruct(elementType, nil))
-					if strings.ContainsAny(kv.Type, "[]") {
-						kv.Type = fmt.Sprintf("repeated %s ", elementType)
+			var otherMessages []parser.Struct
+			kv.Type, otherMessages = ParseToPBType(kv.Type)
+			if len(otherMessages) > 0 {
+				for _, ov := range otherMessages {
+					if isExist := IsMessageExist(pbModel.Messages, ov); isExist {
+						continue
+					} else {
+						pbModel.Messages = append(pbModel.Messages, parser.NewStruct(ov.Name, nil))
 					}
-					kv.Type = elementType
 				}
 			}
 			//利用 Method.Value 来传递 protobuf index，下标从 1 开始
@@ -295,4 +270,60 @@ func TransferToPBModel(pbModel *parser.Proto, iface *parser.Interface) *parser.P
 		pbModel.Messages = append(pbModel.Messages, msgReq, msgRes)
 	}
 	return pbModel
+}
+func IsMessageExist(messages []parser.Struct, msg parser.Struct) (yes bool) {
+	for _, mv := range messages {
+		if mv.Name == msg.Name {
+			yes = true
+			break
+		}
+	}
+	return
+}
+
+func ParseToPBType(dataType string) (pbDataType string, otherMessages []parser.Struct) {
+	if dataType == "error" {
+		pbDataType = "string"
+		return
+	} else if dataType == "int" {
+		pbDataType = "int32"
+		return
+	}
+
+	var (
+		mapKeyType string
+		isRepeated bool
+	)
+	if strings.Contains(dataType, "map") {
+		//map[string]string
+		tmp := strings.Split(dataType, "[")
+		tmp = strings.Split(tmp[1], "]")
+		mapKeyType = tmp[0]
+		dataType = tmp[1]
+	}
+
+	if strings.Contains(dataType, "[]") {
+		isRepeated = true
+		dataType = strings.ReplaceAll(dataType, "[]", "")
+	}
+	if strings.Contains(dataType, ".") {
+		tmp := strings.Split(dataType, ".")
+		dataType = tmp[1]
+		otherMessages = append(otherMessages, parser.NewStruct(dataType, nil))
+	}
+
+	if mapKeyType != "" && isRepeated {
+		panic(fmt.Errorf("proto does not support map with array value"))
+	}
+
+	if mapKeyType != "" {
+		pbDataType = fmt.Sprintf("map<%v,%v> ", mapKeyType, dataType)
+		return
+	} else if isRepeated {
+		pbDataType = fmt.Sprintf("repeated %s ", dataType)
+		return
+	} else {
+		pbDataType = dataType
+	}
+	return
 }
