@@ -349,19 +349,12 @@ func (sg *GRPCUpdateGenerator) Generate(name string) error {
 					)...,
 				).Endpoint()
 				%sEndpoint = opentracing.TraceClient(otTracer, "%s")(%sEndpoint)
-				%sEndpoint = limiter(%sEndpoint)
-				%sEndpoint = circuitbreaker.Gobreaker(gobreaker.NewCircuitBreaker(gobreaker.Settings{
-					Name:    "%s",
-					Timeout: 10 * time.Second,
-				}))(%sEndpoint)
 				set.%sEndpoint = %sEndpoint
 			}
 		`, lowerName, lowerName,
 			name,
 			utils.ToUpperFirstCamelCase(name), upperName, upperName, upperName, name, upperName,
-			lowerName, lowerName, lowerName, lowerName, lowerName, lowerName,
-			upperName,
-			lowerName,
+			lowerName, lowerName, lowerName,
 			upperName,
 			lowerName)
 	}

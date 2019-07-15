@@ -322,7 +322,8 @@ func (sg *ServiceInitGenerator) generateHttpTransport(name string, iface *parser
 				errorEncoder(ctx, f.Failed(), w)
 				return nil
 			}
-			s, err := json.Marshal(response)
+			res := map[string]interface{}{"msg": "success", "code": 200, "data":response}
+			s, err := json.Marshal(res)
 			w.Write(s)
 			return err`, name),
 			[]parser.NamedTypeValue{
@@ -871,7 +872,6 @@ func (sg *ServiceInitGenerator) generateEndpoints(name string, iface *parser.Int
 
 	//add import
 	file.Imports = []parser.NamedTypeValue{
-		parser.NewNameType("", `"github.com/sony/gobreaker"`),
 		parser.NewNameType("stdzipkin", `"github.com/openzipkin/zipkin-go"`),
 		parser.NewNameType("stdopentracing", "\"github.com/opentracing/opentracing-go\""),
 		parser.NewNameType("stdjwt", "\"github.com/dgrijalva/jwt-go\"\n"),
@@ -1006,8 +1006,6 @@ func (sg *ServiceInitGenerator) generateEndpoints(name string, iface *parser.Int
 		{
 			method := "%s"
 			%sEndpoint = Make%sEndpoint(svc)
-            %sEndpoint = ratelimit.NewErroringLimiter(rate.NewLimiter(rate.Every(time.Second), 10000))(%sEndpoint)
-			%sEndpoint = circuitbreaker.Gobreaker(gobreaker.NewCircuitBreaker(gobreaker.Settings{}))(%sEndpoint)
 			%sEndpoint = opentracing.TraceServer(otTracer, method)(%sEndpoint)
 			%sEndpoint = zipkin.TraceEndpoint(zipkinTracer,  method)(%sEndpoint)
 			%sEndpoint = LoggingMiddleware(log.With(logger, "method", method))(%sEndpoint)
@@ -1019,10 +1017,6 @@ func (sg *ServiceInitGenerator) generateEndpoints(name string, iface *parser.Int
 			lowerName,
 			lowerName,
 			upperName,
-			lowerName,
-			lowerName,
-			lowerName,
-			lowerName,
 			lowerName,
 			lowerName,
 			lowerName,

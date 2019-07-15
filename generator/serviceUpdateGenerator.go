@@ -511,8 +511,6 @@ func (sg *ServiceUpdateGenerator) generateEndpoints(name string, iface *parser.I
 			{
 				method := "%s"
 				%sEndpoint = Make%sEndpoint(svc)
-	            %sEndpoint = ratelimit.NewErroringLimiter(rate.NewLimiter(rate.Every(time.Second), 10000))(%sEndpoint)
-				%sEndpoint = circuitbreaker.Gobreaker(gobreaker.NewCircuitBreaker(gobreaker.Settings{}))(%sEndpoint)
 				%sEndpoint = opentracing.TraceServer(otTracer, method)(%sEndpoint)
 				%sEndpoint = zipkin.TraceEndpoint(zipkinTracer,  method)(%sEndpoint)
 				%sEndpoint = LoggingMiddleware(log.With(logger, "method", method))(%sEndpoint)
@@ -524,10 +522,6 @@ func (sg *ServiceUpdateGenerator) generateEndpoints(name string, iface *parser.I
 			lowerName,
 			lowerName,
 			upperName,
-			lowerName,
-			lowerName,
-			lowerName,
-			lowerName,
 			lowerName,
 			lowerName,
 			lowerName,

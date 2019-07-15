@@ -233,7 +233,14 @@ func TransferToPBModel(pbModel *parser.Proto, iface *parser.Interface) *parser.P
 			} else if kv.Type == "int" {
 				kv.Type = "int32"
 			}
-			kv.Type = strings.ReplaceAll(kv.Type, "[]", "repeated ")
+			if strings.Contains(kv.Type, "[]") {
+				kv.Type = strings.ReplaceAll(kv.Type, "[]", "repeated ")
+			}
+			if strings.Contains(kv.Type, ".") {
+				temp := strings.Split(kv.Type, ".")
+				kv.Type = temp[1]
+			}
+
 			//利用 Method.Value 来传递 protobuf index，下标从 1 开始，由于 ctx 参数不用，则跨过 0 下标
 			kv.Value = fmt.Sprintf("%v", k)
 			kv.Name = utils.ToUpperFirstCamelCase(kv.Name)
@@ -273,7 +280,10 @@ func TransferToPBModel(pbModel *parser.Proto, iface *parser.Interface) *parser.P
 					tmp := strings.Split(kv.Type, ".")
 					elementType := tmp[1]
 					pbModel.Messages = append(pbModel.Messages, parser.NewStruct(elementType, nil))
-					kv.Type = fmt.Sprintf("repeated %s ", elementType)
+					if strings.ContainsAny(kv.Type, "[]") {
+						kv.Type = fmt.Sprintf("repeated %s ", elementType)
+					}
+					kv.Type = elementType
 				}
 			}
 			//利用 Method.Value 来传递 protobuf index，下标从 1 开始

@@ -196,7 +196,6 @@ func (sg *GRPCInitGenerator) Generate(name string) error {
 		`NewGRPCClient makes a set of endpoints available as a gRPC client.`,
 		parser.NamedTypeValue{},
 		fmt.Sprintf(`
-		limiter := ratelimit.NewErroringLimiter(rate.NewLimiter(rate.Every(time.Second), 10000))
 		zipkinClient := zipkin.GRPCClientTrace(zipkinTracer)
 		options := []grpctransport.ClientOption{
 			zipkinClient,
@@ -433,19 +432,12 @@ func (sg *GRPCInitGenerator) Generate(name string) error {
 					)...,
 				).Endpoint()
 				%sEndpoint = opentracing.TraceClient(otTracer, "%s")(%sEndpoint)
-				%sEndpoint = limiter(%sEndpoint)
-				%sEndpoint = circuitbreaker.Gobreaker(gobreaker.NewCircuitBreaker(gobreaker.Settings{
-					Name:    "%s",
-					Timeout: 10 * time.Second,
-				}))(%sEndpoint)
 				set.%sEndpoint = %sEndpoint
 			}
 		`, lowerName, lowerName,
 			name,
 			utils.ToUpperFirstCamelCase(name), upperName, upperName, upperName, name, upperName,
-			lowerName, lowerName, lowerName, lowerName, lowerName, lowerName,
-			upperName,
-			lowerName,
+			lowerName, lowerName, lowerName,
 			upperName,
 			lowerName)
 	}
