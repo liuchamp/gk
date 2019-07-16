@@ -1,7 +1,11 @@
 package generator
 
 import (
+	"errors"
 	"fmt"
+	"github.com/yiv/gk/utils"
+	"strings"
+
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"github.com/yiv/gk/fs"
@@ -11,72 +15,107 @@ import (
 
 var SUPPORTED_TRANSPORTS = []string{"http", "grpc", "thrift"}
 
-type ServiceGenerator struct {
-}
-
-func NewServiceGenerator() *ServiceGenerator {
-	return &ServiceGenerator{}
-}
-
-func (sg *ServiceGenerator) Generate(name string) error {
-	logrus.Info(fmt.Sprintf("Generating service: %s", name))
-	f := parser.NewFile()
-	f.Package = fmt.Sprintf("%sservice", name)
+func LoadServiceInterfaceFromFile(name string) (*parser.Interface, error) {
+	logrus.Info("load interfaces from exist file for service ", name)
 	te := template.NewEngine()
-	iname, err := te.ExecuteString(viper.GetString("service.interface_name"), map[string]string{
-		"ServiceName": name,
-	})
-	logrus.Debug(fmt.Sprintf("Service interface name : %s", iname))
-	if err != nil {
-		return err
-	}
-
-	f.AliasType = []parser.NamedTypeValue{parser.NewNameType("Middleware", "func(Service) Service")}
-
-	svcInterface := []parser.Interface{
-		parser.NewInterfaceWithComment(iname, `
-		Service describes a service that adds things together
-		Implement yor service methods methods.
-		e.x: FooToo(ctx context.Context,inParam string)(outParam string, err error)`, []parser.Method{
-			parser.NewMethod("FooToo", parser.NamedTypeValue{}, "", []parser.NamedTypeValue{
-				parser.NewNameType("ctx", "context.Context"),
-				parser.NewNameType("inParam", "string"),
-			}, []parser.NamedTypeValue{
-				parser.NewNameType("outParam", "string"),
-				parser.NewNameType("err", "error"),
-			}),
-		}),
-	}
-	f.Interfaces = svcInterface
-
 	defaultFs := fs.Get()
-
 	path, err := te.ExecuteString(viper.GetString("service.path"), map[string]string{
 		"ServiceName": name,
 	})
-	logrus.Debug(fmt.Sprintf("Service path: %s", path))
 	if err != nil {
-		return err
-	}
-	b, err := defaultFs.Exists(path)
-	if err != nil {
-		return err
+		return nil, err
 	}
 	fname, err := te.ExecuteString(viper.GetString("service.file_name"), map[string]string{
 		"ServiceName": name,
 	})
-	logrus.Debug(fmt.Sprintf("Service file name: %s", fname))
 	if err != nil {
-		return err
+		return nil, err
 	}
-	if b {
-		logrus.Debug("Service folder already exists")
-		return fs.NewDefaultFs(path).WriteFile(fname, f.String(), false)
-	}
-	err = defaultFs.MkdirAll(path)
-	logrus.Debug(fmt.Sprintf("Creating folder structure : %s", path))
+	sfile := path + defaultFs.FilePathSeparator() + fname
+	exist, err := defaultFs.Exists(sfile)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return fs.NewDefaultFs(path).WriteFile(fname, f.String(), false)
+	iname, err := te.ExecuteString(viper.GetString("service.interface_name"), map[string]string{
+		"ServiceName": name,
+	})
+	if err != nil {
+		return nil, err
+	}
+	if !exist {
+		return nil, errors.New(fmt.Sprintf("Service %s was not found", name))
+	}
+	p := parser.NewFileParser()
+	s, err := defaultFs.ReadFile(sfile)
+	if err != nil {
+		return nil, err
+	}
+	f, err := p.Parse([]byte(s))
+	if err != nil {
+		return nil, err
+	}
+
+	var iface *parser.Interface
+	for _, v := range f.Interfaces {
+		if v.Name == iname {
+			iface = &v
+		}
+	}
+	if iface == nil {
+		return nil, errors.New(fmt.Sprintf("Could not find the service interface in `%s`", sfile))
+	}
+	toKeep := []parser.Method{}
+	for _, v := range iface.Methods {
+		isOk := false
+		for _, p := range v.Parameters {
+			if p.Type == "context.Context" {
+				isOk = true
+				break
+			}
+		}
+		if string(v.Name[0]) == strings.ToLower(string(v.Name[0])) {
+			logrus.Warnf("The method '%s' is private and will be ignored", v.Name)
+			continue
+		}
+		if len(v.Results) == 0 {
+			logrus.Warnf("The method '%s' does not have any return value and will be ignored", v.Name)
+			continue
+		}
+		if !isOk {
+			logrus.Warnf("The method '%s' does not have a context and will be ignored", v.Name)
+		}
+		if isOk {
+			toKeep = append(toKeep, v)
+		}
+
+	}
+	iface.Methods = toKeep
+	if len(iface.Methods) == 0 {
+		return nil, errors.New("The service has no method please implement the interface methods")
+	}
+	return iface, nil
+}
+func IsProtoCompiled(name string) (yes bool, err error) {
+	te := template.NewEngine()
+	defaultFs := fs.Get()
+	var (
+		path, sfile string
+		exist       bool
+	)
+	path, err = te.ExecuteString(viper.GetString("pb.path"), map[string]string{
+		"ServiceName": name,
+	})
+	if err != nil {
+		return false, err
+	}
+	sfile = path + defaultFs.FilePathSeparator() + utils.ToLowerSnakeCase(name) + ".pb.go"
+	exist, err = defaultFs.Exists(sfile)
+	if err != nil {
+		return false, err
+	}
+	if !exist {
+		logrus.Error("Not found: ", sfile)
+		return false, errors.New("Could not find the compiled pb of the service")
+	}
+	return true, nil
 }

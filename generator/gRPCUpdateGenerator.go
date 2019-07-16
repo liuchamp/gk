@@ -19,97 +19,25 @@ func NewGRPCUpdateGenerator() *GRPCUpdateGenerator {
 	return &GRPCUpdateGenerator{}
 }
 
-func (sg *GRPCUpdateGenerator) Generate(name string) error {
+func (sg *GRPCUpdateGenerator) Generate(name string) (err error) {
 	logrus.Info("Updating grpc transport for service ", name)
 	te := template.NewEngine()
 	defaultFs := fs.Get()
-	path, err := te.ExecuteString(viper.GetString("service.path"), map[string]string{
-		"ServiceName": name,
-	})
-	if err != nil {
-		return err
-	}
-	fname, err := te.ExecuteString(viper.GetString("service.file_name"), map[string]string{
-		"ServiceName": name,
-	})
-	if err != nil {
-		return err
-	}
-	sfile := path + defaultFs.FilePathSeparator() + fname
-	b, err := defaultFs.Exists(sfile)
-	if err != nil {
-		return err
-	}
-	iname, err := te.ExecuteString(viper.GetString("service.interface_name"), map[string]string{
-		"ServiceName": name,
-	})
-	if err != nil {
-		return err
-	}
-	if !b {
-		return errors.New(fmt.Sprintf("Service %s was not found", name))
-	}
-	p := parser.NewFileParser()
-	s, err := defaultFs.ReadFile(sfile)
-	if err != nil {
-		return err
-	}
-	svcFile, err := p.Parse([]byte(s))
-	if err != nil {
-		return err
-	}
+	var (
+		path, fname, sfile string
+		iface              *parser.Interface
+		p                  = parser.NewFileParser()
+	)
 
-	var iface *parser.Interface
-	for _, v := range svcFile.Interfaces {
-		if v.Name == iname {
-			iface = &v
-		}
-	}
-	if iface == nil {
-		return errors.New(fmt.Sprintf("Could not find the service interface in `%s`", sfile))
-	}
-	toKeep := []parser.Method{}
-	for _, v := range iface.Methods {
-		isOk := false
-		for _, p := range v.Parameters {
-			if p.Type == "context.Context" {
-				isOk = true
-				break
-			}
-		}
-		if string(v.Name[0]) == strings.ToLower(string(v.Name[0])) {
-			logrus.Warnf("The method '%s' is private and will be ignored", v.Name)
-			continue
-		}
-		if len(v.Results) == 0 {
-			logrus.Warnf("The method '%s' does not have any return value and will be ignored", v.Name)
-			continue
-		}
-		if !isOk {
-			logrus.Warnf("The method '%s' does not have a context and will be ignored", v.Name)
-		}
-		if isOk {
-			toKeep = append(toKeep, v)
-		}
+	// pre-check
+	{
+		iface, err = LoadServiceInterfaceFromFile(name)
 
-	}
-	iface.Methods = toKeep
-	if len(iface.Methods) == 0 {
-		return errors.New("The service has no method please implement the interface methods")
-	}
-	path, err = te.ExecuteString(viper.GetString("pb.path"), map[string]string{
-		"ServiceName": name,
-	})
-	if err != nil {
-		return err
-	}
-	sfile = path + defaultFs.FilePathSeparator() + utils.ToLowerSnakeCase(name) + ".pb.go"
-	b, err = defaultFs.Exists(sfile)
-	if err != nil {
-		return err
-	}
-	if !b {
-		return errors.New("Could not find the compiled pb of the service")
+		if yes, err := IsProtoCompiled(name); err != nil {
+			return err
+		} else if !yes {
+			return errors.New("Could not find the compiled pb of the service")
+		}
 	}
 
 	path, err = te.ExecuteString(viper.GetString("grpctransport.path"), map[string]string{
@@ -126,12 +54,13 @@ func (sg *GRPCUpdateGenerator) Generate(name string) error {
 	}
 	sfile = path + defaultFs.FilePathSeparator() + fname
 
-	s, err = defaultFs.ReadFile(sfile)
+	var fileContent string
+	fileContent, err = defaultFs.ReadFile(sfile)
 	if err != nil {
 		return err
 	}
 	var handler *parser.File
-	handler, err = p.Parse([]byte(s))
+	handler, err = p.Parse([]byte(fileContent))
 	if err != nil {
 		return err
 	}
@@ -374,4 +303,77 @@ func (sg *GRPCUpdateGenerator) Generate(name string) error {
 	logrus.Warn("Before using the service don't forget to implement those.")
 	logrus.Warn("---------------------------------------------------------------------------------------")
 	return nil
+}
+func (sg *GRPCUpdateGenerator) UpdateEndpointClient(name string) (err error) {
+
+	te := template.NewEngine()
+	defaultFs := fs.Get()
+
+	var (
+		path, fname, sfile string
+		iface              *parser.Interface
+		p                  = parser.NewFileParser()
+	)
+
+	// pre-check
+	{
+		iface, err = LoadServiceInterfaceFromFile(name)
+
+		if yes, err := IsProtoCompiled(name); err != nil {
+			return err
+		} else if !yes {
+			return errors.New("Could not find the compiled pb of the service")
+		}
+	}
+
+	path, err = te.ExecuteString(viper.GetString("grpctransport.path"), map[string]string{
+		"ServiceName": name,
+	})
+	if err != nil {
+		return err
+	}
+	fname, err = te.ExecuteString(viper.GetString("grpctransport.client_file_name"), map[string]string{
+		"ServiceName": name,
+	})
+	if err != nil {
+		return err
+	}
+	sfile = path + defaultFs.FilePathSeparator() + fname
+
+	var fileContent string
+	fileContent, err = defaultFs.ReadFile(sfile)
+	if err != nil {
+		return err
+	}
+	var handler *parser.File
+	handler, err = p.Parse([]byte(fileContent))
+	if err != nil {
+		return err
+	}
+
+	handler.Methods[0].Body = strings.ReplaceAll(handler.Methods[0].Body, "return", "")
+
+	for _, v := range iface.Methods {
+		makeFunName := fmt.Sprintf("Make%sEndpoint", utils.ToUpperFirstCamelCase(v.Name))
+		if strings.Contains(handler.Methods[0].Body, makeFunName) {
+			continue
+		}
+		handler.Methods[0].Body += "\n" + fmt.Sprintf(`
+			{
+				factory := factory(%sendpoint.Make%sEndpoint, otTracer, zipkinTracer, logger)
+				endpointer := sd.NewEndpointer(instancer, factory, logger)
+				balancer := lb.NewRoundRobin(endpointer)
+				retry := lb.Retry(retryMax, retryTimeout, balancer)
+				set.%sEndpoint = retry
+			}
+		`, name, utils.ToUpperFirstCamelCase(v.Name), utils.ToUpperFirstCamelCase(v.Name))
+	}
+
+	handler.Methods[0].Body += `
+	return `
+	err = defaultFs.WriteFile(sfile, handler.String(), false)
+	if err != nil {
+		return err
+	}
+	return
 }

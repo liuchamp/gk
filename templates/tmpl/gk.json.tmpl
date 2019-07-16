@@ -19,7 +19,8 @@
   },
   "grpctransport":{
   "path":"{{`{{toSnakeCase .ServiceName}}`}}{{fileSeparator}}pkg{{fileSeparator}}{{`{{toSnakeCase .ServiceName}}`}}transport",
-  "file_name":"grpc.go"
+  "file_name":"grpc.go",
+  "client_file_name":"grpcclient.go"
   },
   "pb":{
   "path":"{{`{{toSnakeCase .ServiceName}}`}}{{fileSeparator}}{{`{{toSnakeCase .ServiceName}}`}}pb"

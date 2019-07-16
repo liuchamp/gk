@@ -21,6 +21,11 @@ var grpcCmd = &cobra.Command{
 			logrus.Error(err)
 			return
 		}
+		err = g.GenerateEndpointClient(args[0])
+		if err != nil {
+			logrus.Error(err)
+			return
+		}
 	},
 }
 

@@ -8,6 +8,7 @@ import (
 	"go/format"
 	"go/parser"
 	"go/token"
+	"strings"
 )
 
 type Parser interface {
@@ -216,8 +217,32 @@ func (fp *FileParser) getTypeFromExp(e ast.Expr) string {
 		tp = "map[" + key + "]" + value
 	case *ast.InterfaceType:
 		tp = "interface{}"
+	case *ast.FuncType:
+		var (
+			paramList  string
+			resultList string
+		)
+		for _, v := range k.Params.List {
+			t := v.Type.(*ast.SelectorExpr)
+			p := t.X.(*ast.Ident)
+			paramList += fmt.Sprintf("%s.%s,", p.Name, t.Sel.Name)
+		}
+		for _, v := range k.Results.List {
+			t := v.Type.(*ast.SelectorExpr)
+			p := t.X.(*ast.Ident)
+			resultList += fmt.Sprintf("%s.%s,", p.Name, t.Sel.Name)
+		}
+		paramList = strings.TrimSpace(paramList)
+		paramList = strings.TrimRight(paramList, ",")
+		resultList = strings.TrimSpace(resultList)
+		resultList = strings.TrimRight(resultList, ",")
+		if len(k.Results.List) > 0 {
+			tp = fmt.Sprintf("func(%s) (%s)", paramList, resultList)
+		} else {
+			tp = fmt.Sprintf("func(%s) %s", paramList, resultList)
+		}
 	default:
-		logrus.Info("Type Expresion not supported")
+		logrus.Info("Type Expresion not supported", fmt.Sprintf("%#v", k))
 		return ""
 	}
 	return tp

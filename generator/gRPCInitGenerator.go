@@ -20,96 +20,29 @@ func NewGRPCInitGenerator() *GRPCInitGenerator {
 	return &GRPCInitGenerator{}
 }
 
-func (sg *GRPCInitGenerator) Generate(name string) error {
-	logrus.Info("Init grpc transport for service ", name)
+func (sg *GRPCInitGenerator) Generate(name string) (err error) {
 	te := template.NewEngine()
 	defaultFs := fs.Get()
-	path, err := te.ExecuteString(viper.GetString("service.path"), map[string]string{
-		"ServiceName": name,
-	})
-	if err != nil {
-		return err
-	}
-	fname, err := te.ExecuteString(viper.GetString("service.file_name"), map[string]string{
-		"ServiceName": name,
-	})
-	if err != nil {
-		return err
-	}
-	sfile := path + defaultFs.FilePathSeparator() + fname
-	exist, err := defaultFs.Exists(sfile)
-	if err != nil {
-		return err
-	}
-	iname, err := te.ExecuteString(viper.GetString("service.interface_name"), map[string]string{
-		"ServiceName": name,
-	})
-	if err != nil {
-		return err
-	}
-	if !exist {
-		return errors.New(fmt.Sprintf("Service %s was not found", name))
-	}
-	p := parser.NewFileParser()
-	s, err := defaultFs.ReadFile(sfile)
-	if err != nil {
-		return err
-	}
-	f, err := p.Parse([]byte(s))
-	if err != nil {
-		return err
+
+	var (
+		path, fname, sfile string
+		iface              *parser.Interface
+		exist              bool
+	)
+
+	// pre-check
+	{
+		iface, err = LoadServiceInterfaceFromFile(name)
+
+		if yes, err := IsProtoCompiled(name); err != nil {
+			return err
+		} else if !yes {
+			err = errors.New("Could not find the compiled pb of the service")
+			logrus.Error(err.Error())
+			return err
+		}
 	}
 
-	var iface *parser.Interface
-	for _, v := range f.Interfaces {
-		if v.Name == iname {
-			iface = &v
-		}
-	}
-	if iface == nil {
-		return errors.New(fmt.Sprintf("Could not find the service interface in `%s`", sfile))
-	}
-	toKeep := []parser.Method{}
-	for _, v := range iface.Methods {
-		isOk := false
-		for _, p := range v.Parameters {
-			if p.Type == "context.Context" {
-				isOk = true
-				break
-			}
-		}
-		if string(v.Name[0]) == strings.ToLower(string(v.Name[0])) {
-			logrus.Warnf("The method '%s' is private and will be ignored", v.Name)
-			continue
-		}
-		if len(v.Results) == 0 {
-			logrus.Warnf("The method '%s' does not have any return value and will be ignored", v.Name)
-			continue
-		}
-		if !isOk {
-			logrus.Warnf("The method '%s' does not have a context and will be ignored", v.Name)
-		}
-		if isOk {
-			toKeep = append(toKeep, v)
-		}
-
-	}
-	iface.Methods = toKeep
-	if len(iface.Methods) == 0 {
-		return errors.New("The service has no method please implement the interface methods")
-	}
-	if path, err = te.ExecuteString(viper.GetString("pb.path"), map[string]string{"ServiceName": name}); err != nil {
-		return err
-	}
-
-	sfile = path + defaultFs.FilePathSeparator() + utils.ToLowerSnakeCase(name) + ".pb.go"
-	exist, err = defaultFs.Exists(sfile)
-	if err != nil {
-		return err
-	}
-	if !exist {
-		return errors.New("Could not find the compiled pb of the service")
-	}
 	gosrc := utils.GetGOPATH() + "/src/"
 	gosrc = strings.Replace(gosrc, "\\", "/", -1)
 	pwd, err := os.Getwd()
@@ -129,6 +62,7 @@ func (sg *GRPCInitGenerator) Generate(name string) error {
 	}
 	enpointsPath = strings.Replace(enpointsPath, "\\", "/", -1)
 	endpointsImport := projectPath + "/" + enpointsPath
+
 	handler := parser.NewFile()
 	handler.Package = fmt.Sprintf("%stransport", name)
 	handler.Imports = []parser.NamedTypeValue{
@@ -148,24 +82,29 @@ func (sg *GRPCInitGenerator) Generate(name string) error {
 		parser.NewNameType("", fmt.Sprintf("\"%s\"", endpointsImport)),
 	}
 
+	if path, err = te.ExecuteString(viper.GetString("grpctransport.path"), map[string]string{"ServiceName": name}); err != nil {
+		return err
+	}
+	if fname, err = te.ExecuteString(viper.GetString("grpctransport.file_name"), map[string]string{"ServiceName": name}); err != nil {
+		return err
+	}
+	sfile = path + defaultFs.FilePathSeparator() + fname
+	exist, err = defaultFs.Exists(sfile)
+	if err != nil {
+		return err
+	}
+
+	// If service generated before, go to update
 	{
-		if path, err = te.ExecuteString(viper.GetString("grpctransport.path"), map[string]string{"ServiceName": name}); err != nil {
-			return err
-		}
-		if fname, err = te.ExecuteString(viper.GetString("grpctransport.file_name"), map[string]string{"ServiceName": name}); err != nil {
-			return err
-		}
-		sfile = path + defaultFs.FilePathSeparator() + fname
-		exist, err = defaultFs.Exists(sfile)
-		if err != nil {
-			return err
-		}
 		if exist {
+			logrus.Info("exist grpc transport file found: %v ", sfile)
 			g := NewGRPCUpdateGenerator()
 			err = g.Generate(name)
 			return nil
 		}
 	}
+
+	logrus.Info("Init grpc transport for service ", name)
 
 	grpcStruct := parser.NewStruct("grpcServer", []parser.NamedTypeValue{})
 	//NewGRPCServer
@@ -459,4 +398,163 @@ func (sg *GRPCInitGenerator) Generate(name string) error {
 	logrus.Warn("Before using the service don't forget to implement those.")
 	logrus.Warn("---------------------------------------------------------------------------------------")
 	return nil
+}
+
+func (sg *GRPCInitGenerator) GenerateEndpointClient(name string) (err error) {
+	te := template.NewEngine()
+	defaultFs := fs.Get()
+
+	var (
+		path, fname, sfile string
+		iface              *parser.Interface
+		exist              bool
+	)
+
+	// pre-check
+	{
+		iface, err = LoadServiceInterfaceFromFile(name)
+
+		if yes, err := IsProtoCompiled(name); err != nil {
+			return err
+		} else if !yes {
+			return errors.New("Could not find the compiled pb of the service")
+		}
+	}
+	handler := parser.NewFile()
+
+	gosrc := utils.GetGOPATH() + "/src/"
+	gosrc = strings.Replace(gosrc, "\\", "/", -1)
+	pwd, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+	if viper.GetString("gk_folder") != "" {
+		pwd += "/" + viper.GetString("gk_folder")
+	}
+	pwd = strings.Replace(pwd, "\\", "/", -1)
+	projectPath := strings.Replace(pwd, gosrc, "", 1)
+	pbImport := projectPath + "/" + path
+	pbImport = strings.Replace(pbImport, "\\", "/", -1)
+	enpointsPath, err := te.ExecuteString(viper.GetString("endpoints.path"), map[string]string{"ServiceName": name})
+	if err != nil {
+		return err
+	}
+	enpointsPath = strings.Replace(enpointsPath, "\\", "/", -1)
+	endpointsImport := projectPath + "/" + enpointsPath
+
+	handler.Package = fmt.Sprintf("%stransport", name)
+	handler.Imports = []parser.NamedTypeValue{
+		parser.NewNameType("", "\"io\""),
+		parser.NewNameType("", "\"time\"\n"),
+
+		parser.NewNameType("stdzipkin", `"github.com/openzipkin/zipkin-go"`),
+		parser.NewNameType("stdopentracing", "\"github.com/opentracing/opentracing-go\""),
+		parser.NewNameType("", "\"google.golang.org/grpc\"\n"),
+
+		parser.NewNameType("", "\"github.com/go-kit/kit/sd\""),
+		parser.NewNameType("ketcd", "\"github.com/go-kit/kit/sd/etcd\""),
+		parser.NewNameType("", "\"github.com/go-kit/kit/endpoint\""),
+		parser.NewNameType("", "\"github.com/go-kit/kit/sd/lb\""),
+		parser.NewNameType("", "\"github.com/go-kit/kit/log\"\n"),
+
+		parser.NewNameType("", fmt.Sprintf("\"%s\"", pbImport)),
+		parser.NewNameType("", fmt.Sprintf("\"%s\"", endpointsImport)),
+	}
+
+	if path, err = te.ExecuteString(viper.GetString("grpctransport.path"), map[string]string{"ServiceName": name}); err != nil {
+		return err
+	}
+	if fname, err = te.ExecuteString(viper.GetString("grpctransport.client_file_name"), map[string]string{"ServiceName": name}); err != nil {
+		return err
+	}
+	sfile = path + defaultFs.FilePathSeparator() + fname
+	exist, err = defaultFs.Exists(sfile)
+	if err != nil {
+		return err
+	}
+
+	// If service generated before, go to update
+	{
+		if exist {
+			g := NewGRPCUpdateGenerator()
+			err = g.UpdateEndpointClient(name)
+			return nil
+		}
+	}
+
+	logrus.Info("Init client of grpc endpoint for service ", name)
+
+	handler.Methods = append(handler.Methods, parser.NewMethodWithComment(
+		"NewEndpointClientSet",
+		`NewEndpointClientSet makes a set of endpoints available for a gRPC client.`,
+		parser.NamedTypeValue{},
+		fmt.Sprintf(`
+		var instancer *ketcd.Instancer
+		if instancer, err = ketcd.NewInstancer(etcdClient, svcName, logger); err != nil {
+			panic(err.Error())
+		}
+		set = %sendpoint.Set{}
+		`, name),
+		[]parser.NamedTypeValue{
+			parser.NewNameType("svcName", "string"),
+			parser.NewNameType("retryMax", "int"),
+			parser.NewNameType("retryTimeout", "time.Duration"),
+			parser.NewNameType("logger", "log.Logger"),
+			parser.NewNameType("etcdClient", "ketcd.Client"),
+			parser.NewNameType("otTracer", "stdopentracing.Tracer"),
+			parser.NewNameType("zipkinTracer", "*stdzipkin.Tracer"),
+		},
+		[]parser.NamedTypeValue{
+			parser.NewNameType("set", fmt.Sprintf("%sendpoint.Set", name)),
+			parser.NewNameType("err", "error"),
+		},
+	))
+
+	handler.Methods = append(handler.Methods, parser.NewMethod(
+		"factory",
+		parser.NamedTypeValue{},
+		fmt.Sprintf(`
+		return func(instance string) (endpoint.Endpoint, io.Closer, error) {
+			conn, err := grpc.Dial(instance, grpc.WithInsecure())
+			if err != nil {
+				return nil, nil, err
+			}
+			service := NewGRPCClient(conn, otTracer, zipkinTracer, logger)
+			ep := makeEndpoint(service)
+	
+			return ep, conn, nil
+		}
+		`),
+		[]parser.NamedTypeValue{
+			parser.NewNameType("makeEndpoint", fmt.Sprintf("func(%sservice.Service) endpoint.Endpoint", name)),
+			parser.NewNameType("otTracer", "stdopentracing.Tracer"),
+			parser.NewNameType("zipkinTracer", "*stdzipkin.Tracer"),
+			parser.NewNameType("logger", "log.Logger"),
+		},
+		[]parser.NamedTypeValue{
+			parser.NewNameType("", "sd.Factory"),
+		},
+	))
+
+	for _, v := range iface.Methods {
+		handler.Methods[0].Body += "\n" + fmt.Sprintf(`
+		{
+			factory := factory(%sendpoint.Make%sEndpoint, otTracer, zipkinTracer, logger)
+			endpointer := sd.NewEndpointer(instancer, factory, logger)
+			balancer := lb.NewRoundRobin(endpointer)
+			retry := lb.Retry(retryMax, retryTimeout, balancer)
+			set.%sEndpoint = retry
+		}
+		`, name, utils.ToUpperFirstCamelCase(v.Name), utils.ToUpperFirstCamelCase(v.Name))
+	}
+
+	handler.Methods[0].Body += `
+	return `
+
+	err = defaultFs.WriteFile(sfile, handler.String(), false)
+	if err != nil {
+		return err
+	}
+
+	return
 }
