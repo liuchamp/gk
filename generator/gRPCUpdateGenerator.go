@@ -298,6 +298,7 @@ func (sg *GRPCUpdateGenerator) Generate(name string) (err error) {
 	if err != nil {
 		return err
 	}
+
 	logrus.Warn("---------------------------------------------------------------------------------------")
 	logrus.Warn("The generator does not implement the Decoding and Encoding of the grpc request/response")
 	logrus.Warn("Before using the service don't forget to implement those.")
@@ -317,7 +318,10 @@ func (sg *GRPCUpdateGenerator) UpdateEndpointClient(name string) (err error) {
 
 	// pre-check
 	{
-		iface, err = LoadServiceInterfaceFromFile(name)
+		if iface, err = LoadServiceInterfaceFromFile(name); err != nil {
+			logrus.Error(err.Error())
+			return
+		}
 
 		if yes, err := IsProtoCompiled(name); err != nil {
 			return err
@@ -330,12 +334,14 @@ func (sg *GRPCUpdateGenerator) UpdateEndpointClient(name string) (err error) {
 		"ServiceName": name,
 	})
 	if err != nil {
+		logrus.Error(err.Error())
 		return err
 	}
 	fname, err = te.ExecuteString(viper.GetString("grpctransport.client_file_name"), map[string]string{
 		"ServiceName": name,
 	})
 	if err != nil {
+		logrus.Error(err.Error())
 		return err
 	}
 	sfile = path + defaultFs.FilePathSeparator() + fname
@@ -343,11 +349,13 @@ func (sg *GRPCUpdateGenerator) UpdateEndpointClient(name string) (err error) {
 	var fileContent string
 	fileContent, err = defaultFs.ReadFile(sfile)
 	if err != nil {
+		logrus.Error(err.Error())
 		return err
 	}
 	var handler *parser.File
 	handler, err = p.Parse([]byte(fileContent))
 	if err != nil {
+		logrus.Error(err.Error())
 		return err
 	}
 
@@ -373,6 +381,7 @@ func (sg *GRPCUpdateGenerator) UpdateEndpointClient(name string) (err error) {
 	return `
 	err = defaultFs.WriteFile(sfile, handler.String(), false)
 	if err != nil {
+		logrus.Error(err.Error())
 		return err
 	}
 	return

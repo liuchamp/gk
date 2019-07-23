@@ -504,9 +504,9 @@ func (sg *ServiceInitGenerator) generateHttpTransportTesting(name string, iface 
 		"NewJWTToken",
 		`NewJWTToken accept a user id as input parameter, return a string of jwt token`,
 		parser.NamedTypeValue{},
-		`return jwttoken.NewJWTTokenString("############################",uid)`,
+		`return jwttoken.NewJWTTokenString("############################",userId)`,
 		[]parser.NamedTypeValue{
-			parser.NewNameType("uid", "int64"),
+			parser.NewNameType("userId", "int64"),
 		},
 		[]parser.NamedTypeValue{
 			parser.NewNameType("", "string"),

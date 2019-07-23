@@ -4,6 +4,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/yiv/gk/generator"
+	"time"
 )
 
 // grpcCmd represents the grpc command
@@ -21,6 +22,7 @@ var grpcCmd = &cobra.Command{
 			logrus.Error(err)
 			return
 		}
+		time.Sleep(time.Second * 5)
 		err = g.GenerateEndpointClient(args[0])
 		if err != nil {
 			logrus.Error(err)

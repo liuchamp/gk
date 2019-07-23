@@ -426,6 +426,7 @@ func (sg *GRPCInitGenerator) GenerateEndpointClient(name string) (err error) {
 	gosrc = strings.Replace(gosrc, "\\", "/", -1)
 	pwd, err := os.Getwd()
 	if err != nil {
+		logrus.Error(err.Error())
 		return err
 	}
 	if viper.GetString("gk_folder") != "" {
@@ -437,6 +438,7 @@ func (sg *GRPCInitGenerator) GenerateEndpointClient(name string) (err error) {
 	pbImport = strings.Replace(pbImport, "\\", "/", -1)
 	enpointsPath, err := te.ExecuteString(viper.GetString("endpoints.path"), map[string]string{"ServiceName": name})
 	if err != nil {
+		logrus.Error(err.Error())
 		return err
 	}
 	enpointsPath = strings.Replace(enpointsPath, "\\", "/", -1)
@@ -462,14 +464,17 @@ func (sg *GRPCInitGenerator) GenerateEndpointClient(name string) (err error) {
 	}
 
 	if path, err = te.ExecuteString(viper.GetString("grpctransport.path"), map[string]string{"ServiceName": name}); err != nil {
+		logrus.Error(err.Error())
 		return err
 	}
 	if fname, err = te.ExecuteString(viper.GetString("grpctransport.client_file_name"), map[string]string{"ServiceName": name}); err != nil {
+		logrus.Error(err.Error())
 		return err
 	}
 	sfile = path + defaultFs.FilePathSeparator() + fname
 	exist, err = defaultFs.Exists(sfile)
 	if err != nil {
+		logrus.Error(err.Error())
 		return err
 	}
 
@@ -553,6 +558,7 @@ func (sg *GRPCInitGenerator) GenerateEndpointClient(name string) (err error) {
 
 	err = defaultFs.WriteFile(sfile, handler.String(), false)
 	if err != nil {
+		logrus.Error(err.Error())
 		return err
 	}
 
