@@ -624,16 +624,18 @@ func (sg *ServiceUpdateGenerator) generateHttpTransport(name string, iface *pars
 				parser.NewNameType("", "error"),
 			},
 		))
-		handlerFile.Methods[0].Body += "\n" + fmt.Sprintf(`m.Handle("/%s", httptransport.NewServer(
-        endpoints.%sEndpoint,
-        decodeHTTP%sReq,
-        encodeHTTPGenericResponse,
-        append(options, 
-			httptransport.ServerBefore(opentracing.HTTPToContext(otTracer, "%s", logger)), 
-			httptransport.ServerBefore(jwt.HTTPToContext()),
-			)...,
-		))`,
-			utils.ToLowerHyphenCase(m.Name), m.Name, m.Name, utils.ToLowerFirstCamelCase(m.Name))
+		handlerFile.Methods[0].Body += "\n" + fmt.Sprintf(`
+			{
+				ops := append(options, httptransport.ServerBefore(opentracing.HTTPToContext(otTracer, "%s", logger)))
+				ops = append(ops, httptransport.ServerBefore(jwt.HTTPToContext()))
+				ops = append(ops, httptransport.ServerBefore(header.HTTPToContext()))
+				m.Handle("/%s", httptransport.NewServer(
+				endpoints.%sEndpoint,
+				decodeHTTP%sReq,
+				encodeHTTPGenericResponse,
+				ops...,
+				))
+			}`, m.Name, utils.ToLowerHyphenCase(m.Name), m.Name, m.Name)
 	}
 	handlerFile.Methods[0].Body += "\n" + "return m"
 

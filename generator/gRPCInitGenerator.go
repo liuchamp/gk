@@ -340,17 +340,18 @@ func (sg *GRPCInitGenerator) Generate(name string) (err error) {
 
 		//init grpcServer method
 		handler.Methods[0].Body += "\n" + fmt.Sprintf(`
-			gs.%s = grpctransport.NewServer(
-			endpoints.%sEndpoint,
-			decodeGRPC%sReq,
-			encodeGRPC%sRes,
-			append(
-				options,
-				grpctransport.ServerBefore(opentracing.GRPCToContext(otTracer, "%s", logger)),
-				grpctransport.ServerBefore(jwt.GRPCToContext()),
-			)...,
-		)
-		`, utils.ToLowerFirstCamelCase(v.Name), v.Name, v.Name, v.Name, v.Name)
+			{
+				ops := append(options, grpctransport.ServerBefore(opentracing.GRPCToContext(otTracer, "%s", logger)))
+				ops = append(ops, grpctransport.ServerBefore(jwt.GRPCToContext()))
+				ops = append(ops, grpctransport.ServerBefore(header.GRPCToContext()))
+				gs.%s = grpctransport.NewServer(
+					endpoints.%sEndpoint,
+					decodeGRPC%sReq,
+					encodeGRPC%sRes,
+					ops...,
+				)
+			}
+		`, v.Name, utils.ToLowerFirstCamelCase(v.Name), v.Name, v.Name, v.Name)
 
 		//init grpc client method
 		lowerName := utils.ToLowerFirstCamelCase(v.Name)
@@ -358,6 +359,9 @@ func (sg *GRPCInitGenerator) Generate(name string) (err error) {
 		handler.Methods[1].Body += "\n" + fmt.Sprintf(`
 			var %sEndpoint endpoint.Endpoint
 			{
+				ops := append(options, grpctransport.ClientBefore(opentracing.ContextToGRPC(otTracer, logger)))
+				ops = append(ops, grpctransport.ClientBefore(jwt.ContextToGRPC()))
+				ops = append(ops, grpctransport.ClientBefore(header.ContextToGRPC()))
 				%sEndpoint = grpctransport.NewClient(
 					conn,
 					"%spb.%s",
@@ -365,10 +369,7 @@ func (sg *GRPCInitGenerator) Generate(name string) (err error) {
 					encodeGRPC%sReq,
 					decodeGRPC%sRes,
 					%spb.%sRes{},
-					append(options, 
-						grpctransport.ClientBefore(opentracing.ContextToGRPC(otTracer, logger)),
-						grpctransport.ClientBefore(jwt.ContextToGRPC()),
-					)...,
+					ops...,
 				).Endpoint()
 				%sEndpoint = opentracing.TraceClient(otTracer, "%s")(%sEndpoint)
 				set.%sEndpoint = %sEndpoint

@@ -280,6 +280,12 @@ func (sg *ServiceInitGenerator) generateHttpTransport(name string, iface *parser
 		parser.NewNameType("", "\""+endpointsImport+"\""),
 	}
 
+	handlerFile.Vars = []parser.NamedTypeValue{
+		parser.NewNameTypeValue("ErrJWTTokenIsExpired", "", `errors.New("rpc error: code = Unknown desc = JWT Token is expired")`),
+		parser.NewNameTypeValue("ErrJWTTokenNotPassParse", "", `errors.New("rpc error: code = Unknown desc = token up for parsing was not passed through the context")`),
+		parser.NewNameTypeValue("ErrJWTTokenIsMalformed", "", `errors.New("rpc error: code = Unknown desc = JWT Token is malformed")`),
+	}
+
 	handlerFile.Structs = []parser.Struct{
 		parser.NewStructWithComment(
 			"errorWrapper",
@@ -358,13 +364,13 @@ func (sg *ServiceInitGenerator) generateHttpTransport(name string, iface *parser
 			`code := http.StatusInternalServerError
 			 msg := err.Error()
 			 switch msg {
-			 case ErrJWTExpired.Error():
+			 case ErrJWTTokenIsExpired.Error():
 				code = http.StatusUnauthorized
 			 default:
 			 	code = http.StatusInternalServerError
 			 }
-			 w.WriteHeader(code)
-			 s, err := json.Marshal(errorWrapper{Err: msg})
+			 w.WriteHeader(http.StatusOK)
+			 s, err := json.Marshal(errorWrapper{Code: code, Err: msg})
 			 w.Write(s)`,
 			[]parser.NamedTypeValue{
 				parser.NewNameType("_", "context.Context"),
@@ -411,16 +417,19 @@ func (sg *ServiceInitGenerator) generateHttpTransport(name string, iface *parser
 		//		parser.NewNameType("err", "error"),
 		//	},
 		//))
-		handlerFile.Methods[0].Body += "\n" + fmt.Sprintf(`m.Handle("/%s", httptransport.NewServer(
-        endpoints.%sEndpoint,
-        decodeHTTP%sReq,
-        encodeHTTPGenericResponse,
-        append(options, 
-			httptransport.ServerBefore(opentracing.HTTPToContext(otTracer, "%s", logger)), 
-			httptransport.ServerBefore(jwt.HTTPToContext()),
-			)...,
-		))`,
-			utils.ToLowerHyphenCase(m.Name), m.Name, m.Name, utils.ToLowerFirstCamelCase(m.Name))
+		handlerFile.Methods[0].Body += "\n" + fmt.Sprintf(`
+			{
+				ops := append(options, httptransport.ServerBefore(opentracing.HTTPToContext(otTracer, "%s", logger)))
+				ops = append(ops, httptransport.ServerBefore(jwt.HTTPToContext()))
+				ops = append(ops, httptransport.ServerBefore(header.HTTPToContext()))
+				m.Handle("/%s", httptransport.NewServer(
+				endpoints.%sEndpoint,
+				decodeHTTP%sReq,
+				encodeHTTPGenericResponse,
+				ops...,
+				))
+			}
+			`, m.Name, utils.ToLowerHyphenCase(m.Name), m.Name, m.Name)
 	}
 	handlerFile.Methods[0].Body += "\n" + "return m"
 	path, err := te.ExecuteString(viper.GetString("httptransport.path"), map[string]string{
