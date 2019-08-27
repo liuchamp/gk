@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"fmt"
 	"github.com/sirupsen/logrus"
 	template "github.com/yiv/gk/templates"
 	"github.com/yiv/gk/utils"
@@ -16,6 +17,9 @@ type Struct struct {
 func NewStruct(name string, vars []NamedTypeValue) Struct {
 	for k, v := range vars {
 		vars[k].Comment = utils.ToLowerSnakeCase(v.Name)
+		if v.Tag == "" {
+			vars[k].Tag = fmt.Sprintf("`json:\"%s\"`", utils.ToLowerSnakeCase(v.Name))
+		}
 	}
 	return Struct{
 		Name:    name,

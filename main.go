@@ -20,7 +20,7 @@ func main() {
 		return
 	}
 	if !strings.HasPrefix(pwd, gosrc) {
-		logrus.Error("The project must be in the $GOPATH/src folder for the generator to work.")
+		logrus.Errorf("The project must be in the $GOPATH/src (%s) folder for the generator to work.", gosrc)
 		return
 	}
 	cmd.Execute()

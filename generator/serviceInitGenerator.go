@@ -91,6 +91,7 @@ func (sg *ServiceInitGenerator) Generate(name string) error {
 			}
 		}
 
+		//go update
 		if isSvcExist {
 			updateGen := NewServiceUpdateGenerator()
 			err = updateGen.Generate(name)
@@ -291,6 +292,7 @@ func (sg *ServiceInitGenerator) generateHttpTransport(name string, iface *parser
 			"errorWrapper",
 			``,
 			[]parser.NamedTypeValue{
+				parser.NewNameType("Code", "int"),
 				parser.NewNameType("Err", "string"),
 			}),
 	}

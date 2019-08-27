@@ -126,11 +126,15 @@ func (fp *FileParser) parseVars(ds []ast.Spec) []NamedTypeValue {
 			logrus.Debug("Var spec is not ValueSpec type, odd, skipping")
 			continue
 		}
-		tp, ok := vsp.Type.(*ast.Ident)
-		if !ok {
-			logrus.Debug("Spec type not  Ident type, odd, skipping")
-			continue
+		var names []string
+		for _, v := range vsp.Names {
+			names = append(names, v.Name)
 		}
+		//tp, ok := vsp.Type.(*ast.Ident)
+		//if !ok {
+		//	logrus.Debug("Spec type not  Ident type, odd, skipping")
+		//	continue
+		//}
 		if len(vsp.Values) > 0 {
 			fst := token.NewFileSet()
 			bt := bytes.NewBufferString("")
@@ -139,9 +143,9 @@ func (fp *FileParser) parseVars(ds []ast.Spec) []NamedTypeValue {
 			if err != nil {
 				logrus.Panic(err)
 			}
-			vars = append(vars, NewNameTypeValue(tp.Name, vsp.Names[0].Name, bd))
+			vars = append(vars, NewNameTypeValue(names[0], "", bd))
 		} else {
-			vars = append(vars, NewNameType(tp.Name, vsp.Names[0].Name))
+			vars = append(vars, NewNameType(names[0], vsp.Names[0].Name))
 		}
 
 	}
@@ -184,11 +188,16 @@ func (fp *FileParser) parseFieldListAsNamedTypes(list *ast.FieldList) []NamedTyp
 			}
 			if len(names) == 0 {
 				namedType := NewNameType("", typ)
+				if p.Tag != nil {
+					namedType.Tag = p.Tag.Value
+				}
 				ntv = append(ntv, namedType)
 			} else {
 				for _, name := range names {
 					namedType := NewNameType(name, typ)
-					logrus.Debug(fmt.Sprintf("NamedType %+v", namedType))
+					if p.Tag != nil {
+						namedType.Tag = p.Tag.Value
+					}
 					ntv = append(ntv, namedType)
 				}
 			}
