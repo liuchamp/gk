@@ -246,15 +246,33 @@ func (sg *ServiceUpdateGenerator) generateServiceLoggingMiddleware(name string, 
 	}
 
 	for _, v := range iface.Methods {
-		var isExist bool
-		for _, vv := range file.Methods {
+		existCheck := MethodNotExist
+		var svcIndex int
+		for k, vv := range file.Methods {
 			if v.Name == vv.Name {
-				isExist = true
+				if v.HasSameSignature(&vv) {
+					existCheck = MethodExistAsSame
+				} else {
+					existCheck = MethodExistNotSame
+					svcIndex = k
+				}
 				break
 			}
 		}
-		if isExist {
+		if existCheck == MethodExistAsSame {
+			//method exist and not changed
 			continue
+		} else if existCheck == MethodExistNotSame {
+			//method exist and been changed, remove the origin
+			var methods []parser.Method
+			for k, vv := range file.Methods {
+				if k != svcIndex {
+					methods = append(methods, vv)
+				}
+			}
+			file.Methods = methods
+		} else {
+			//method not exist
 		}
 		var retBody string
 		logBody := fmt.Sprintf(`"method", "%s"`, v.Name)
@@ -312,16 +330,35 @@ func (sg *ServiceUpdateGenerator) generateServiceInstrumentingMiddleware(name st
 	}
 
 	for _, v := range iface.Methods {
-		var isExist bool
-		for _, vv := range file.Methods {
+		existCheck := MethodNotExist
+		var svcIndex int
+		for k, vv := range file.Methods {
 			if v.Name == vv.Name {
-				isExist = true
+				if v.HasSameSignature(&vv) {
+					existCheck = MethodExistAsSame
+				} else {
+					existCheck = MethodExistNotSame
+					svcIndex = k
+				}
 				break
 			}
 		}
-		if isExist {
+		if existCheck == MethodExistAsSame {
+			//method exist and not changed
 			continue
+		} else if existCheck == MethodExistNotSame {
+			//method exist and been changed, remove the origin
+			var methods []parser.Method
+			for k, vv := range file.Methods {
+				if k != svcIndex {
+					methods = append(methods, vv)
+				}
+			}
+			file.Methods = methods
+		} else {
+			//method not exist
 		}
+
 		var retBody string
 		for i, p := range v.Parameters {
 			retBody += p.Name
@@ -417,16 +454,59 @@ func (sg *ServiceUpdateGenerator) generateEndpoints(name string, iface *parser.I
 	}
 
 	for _, v := range iface.Methods {
-		reqStructName := v.Name + "Req"
-		var isExist bool
-		for _, vv := range file.Structs {
-			if vv.Name == reqStructName {
-				isExist = true
+		existCheck := MethodNotExist
+		for _, vv := range file.Methods {
+			if vv.Name == v.Name {
+				if v.HasSameSignature(&vv) {
+					existCheck = MethodExistAsSame
+				} else {
+					existCheck = MethodExistNotSame
+				}
+				break
 			}
 		}
-		if isExist {
+
+		if existCheck == MethodExistAsSame {
+			//method exist and not changed
 			continue
+		} else if existCheck == MethodExistNotSame {
+			//method exist and been changed, remove the origin
+			{
+				var methods []parser.Method
+				for _, vv := range file.Methods {
+					if vv.Name != v.Name {
+						methods = append(methods, vv)
+					}
+				}
+				file.Methods = methods
+			}
+			{
+				methodName := fmt.Sprintf("Make%sEndpoint", v.Name)
+				var methods []parser.Method
+				for _, vv := range file.Methods {
+					if vv.Name != methodName {
+						methods = append(methods, vv)
+					}
+				}
+				file.Methods = methods
+			}
+			{
+
+				reqStructName := v.Name + "Req"
+				resStructName := v.Name + "Res"
+				var structs []parser.Struct
+				for _, vv := range file.Structs {
+					if vv.Name != reqStructName && vv.Name != resStructName {
+						structs = append(structs, vv)
+					}
+				}
+				file.Structs = structs
+			}
+
+		} else {
+			//method not exist
 		}
+
 		reqPrams := []parser.NamedTypeValue{}
 		for _, p := range v.Parameters {
 			if p.Type != "context.Context" {
@@ -434,27 +514,30 @@ func (sg *ServiceUpdateGenerator) generateEndpoints(name string, iface *parser.I
 				reqPrams = append(reqPrams, parser.NewNameType(n, p.Type))
 			}
 		}
-
 		resultPrams := []parser.NamedTypeValue{}
 		for _, p := range v.Results {
 			n := strings.ToUpper(string(p.Name[0])) + p.Name[1:]
 			resultPrams = append(resultPrams, parser.NewNameType(n, p.Type))
 		}
+
 		req := parser.NewStruct(v.Name+"Req", reqPrams)
 		res := parser.NewStruct(v.Name+"Res", resultPrams)
+
 		file.Structs = append(file.Structs, req)
 		file.Structs = append(file.Structs, res)
 
-		//add Failer interface method for response
-		file.Methods = append(file.Methods, parser.NewMethod(
-			"Failed",
-			parser.NewNameType("r", v.Name+"Res"),
-			fmt.Sprintf(`return r.Err`),
-			[]parser.NamedTypeValue{},
-			[]parser.NamedTypeValue{
-				parser.NewNameType("err", "error"),
-			},
-		))
+		if existCheck == MethodNotExist {
+			//add Failer interface method for response
+			file.Methods = append(file.Methods, parser.NewMethod(
+				"Failed",
+				parser.NewNameType("r", v.Name+"Res"),
+				fmt.Sprintf(`return r.Err`),
+				[]parser.NamedTypeValue{},
+				[]parser.NamedTypeValue{
+					parser.NewNameType("err", "error"),
+				},
+			))
+		}
 
 		tmplModel := map[string]interface{}{
 			"Calling":  v,
@@ -506,7 +589,8 @@ func (sg *ServiceUpdateGenerator) generateEndpoints(name string, iface *parser.I
 		lowerName := utils.ToLowerFirstCamelCase(v.Name)
 		upperName := utils.ToUpperFirstCamelCase(v.Name)
 
-		file.Methods[newMethodIndex].Body += fmt.Sprintf(`
+		if existCheck == MethodNotExist {
+			file.Methods[newMethodIndex].Body += fmt.Sprintf(`
 			var %sEndpoint endpoint.Endpoint
 			{
 				method := "%s"
@@ -519,21 +603,23 @@ func (sg *ServiceUpdateGenerator) generateEndpoints(name string, iface *parser.I
 				set.%sEndpoint = %sEndpoint
 			}
 			`, lowerName,
-			lowerName,
-			lowerName,
-			upperName,
-			lowerName,
-			lowerName,
-			lowerName,
-			lowerName,
-			lowerName,
-			lowerName,
-			lowerName,
-			lowerName,
-			lowerName,
-			lowerName,
-			upperName,
-			lowerName)
+				lowerName,
+				lowerName,
+				upperName,
+				lowerName,
+				lowerName,
+				lowerName,
+				lowerName,
+				lowerName,
+				lowerName,
+				lowerName,
+				lowerName,
+				lowerName,
+				lowerName,
+				upperName,
+				lowerName)
+		}
+
 	}
 
 	file.Methods[newMethodIndex].Body += "\n return set"

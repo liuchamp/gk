@@ -57,3 +57,20 @@ func (m *Method) String() string {
 	}
 	return string(dt)
 }
+
+func (m *Method) HasSameSignature(other *Method) bool {
+	if len(m.Parameters) != len(other.Parameters) || len(m.Results) != len(other.Results) {
+		return false
+	}
+	for k := range m.Parameters {
+		if len(other.Parameters) > k && m.Parameters[k].Type != other.Parameters[k].Type {
+			return false
+		}
+	}
+	for k := range m.Results {
+		if len(other.Results) > k && m.Results[k].Type != other.Results[k].Type {
+			return false
+		}
+	}
+	return true
+}
