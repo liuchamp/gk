@@ -699,6 +699,9 @@ func (sg *ServiceUpdateGenerator) generateHttpTransport(name string, iface *pars
 			parser.NamedTypeValue{},
 			fmt.Sprintf(`req := %sendpoint.%sReq{}
 			body, _ := ioutil.ReadAll(r.Body)
+			if len(body) == 0 {
+				return req, nil
+			}
 			err := json.Unmarshal(body, &req)
 			return req, err`, name, m.Name),
 			[]parser.NamedTypeValue{
