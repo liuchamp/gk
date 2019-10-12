@@ -330,7 +330,7 @@ func (sg *ServiceInitGenerator) generateHttpTransport(name string, iface *parser
 				errorEncoder(ctx, f.Failed(), w)
 				return nil
 			}
-			res := map[string]interface{}{"msg": "success", "code": 200, "data":response}
+			res := map[string]interface{}{"msg": "success", "code": 0, "data":response}
 			s, err := json.Marshal(res)
 			w.Write(s)
 			return err`, name),
