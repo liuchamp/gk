@@ -293,7 +293,7 @@ func (sg *ServiceInitGenerator) generateHttpTransport(name string, iface *parser
 			``,
 			[]parser.NamedTypeValue{
 				parser.NewNameType("Code", "int"),
-				parser.NewNameType("Err", "string"),
+				parser.NewNameType("Msg", "string"),
 			}),
 	}
 
@@ -372,7 +372,7 @@ func (sg *ServiceInitGenerator) generateHttpTransport(name string, iface *parser
 			 	code = http.StatusInternalServerError
 			 }
 			 w.WriteHeader(http.StatusOK)
-			 s, err := json.Marshal(errorWrapper{Code: code, Err: msg})
+			 s, err := json.Marshal(errorWrapper{Code: code, Msg: msg})
 			 w.Write(s)`,
 			[]parser.NamedTypeValue{
 				parser.NewNameType("_", "context.Context"),
