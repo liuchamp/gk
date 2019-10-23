@@ -366,7 +366,7 @@ func (sg *ServiceInitGenerator) generateHttpTransport(name string, iface *parser
 			`code := http.StatusInternalServerError
 			 msg := err.Error()
 			 switch msg {
-			 case ErrJWTTokenIsExpired.Error(), ErrJWTTokenNotPassParse.Error(), ErrJWTTokenIsMalformed.Error():
+			 case ErrJWTTokenIsExpired.Error(), ErrJWTTokenNotPassParse.Error(), ErrJWTTokenIsMalformed.Error(), errors.New("access restricted").Error():
 				code = 103
 			 default:
 			 	code = http.StatusInternalServerError
