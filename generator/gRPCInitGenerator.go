@@ -357,12 +357,11 @@ func (sg *GRPCInitGenerator) Generate(name string) (err error) {
 		lowerName := utils.ToLowerFirstCamelCase(v.Name)
 		upperName := utils.ToUpperFirstCamelCase(v.Name)
 		handler.Methods[1].Body += "\n" + fmt.Sprintf(`
-			var %sEndpoint endpoint.Endpoint
 			{
 				ops := append(options, grpctransport.ClientBefore(opentracing.ContextToGRPC(otTracer, logger)))
 				ops = append(ops, grpctransport.ClientBefore(jwt.ContextToGRPC()))
 				ops = append(ops, grpctransport.ClientBefore(header.ContextToGRPC()))
-				%sEndpoint = grpctransport.NewClient(
+				ep := grpctransport.NewClient(
 					conn,
 					"%spb.%s",
 					"%s",
@@ -371,15 +370,10 @@ func (sg *GRPCInitGenerator) Generate(name string) (err error) {
 					%spb.%sRes{},
 					ops...,
 				).Endpoint()
-				%sEndpoint = opentracing.TraceClient(otTracer, "%s")(%sEndpoint)
-				set.%sEndpoint = %sEndpoint
+				ep = opentracing.TraceClient(otTracer, "%s")(ep)
+				set.%sEndpoint = ep
 			}
-		`, lowerName, lowerName,
-			name,
-			utils.ToUpperFirstCamelCase(name), upperName, upperName, upperName, name, upperName,
-			lowerName, lowerName, lowerName,
-			upperName,
-			lowerName)
+		`, name, utils.ToUpperFirstCamelCase(name), upperName, upperName, upperName, name, upperName, lowerName, upperName)
 	}
 	//close NewGRPCServer
 	handler.Methods[0].Body += `

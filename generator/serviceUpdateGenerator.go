@@ -591,33 +591,19 @@ func (sg *ServiceUpdateGenerator) generateEndpoints(name string, iface *parser.I
 
 		if existCheck == MethodNotExist {
 			file.Methods[newMethodIndex].Body += fmt.Sprintf(`
-			var %sEndpoint endpoint.Endpoint
 			{
 				method := "%s"
-				%sEndpoint = Make%sEndpoint(svc)
-				%sEndpoint = opentracing.TraceServer(otTracer, method)(%sEndpoint)
-				%sEndpoint = zipkin.TraceEndpoint(zipkinTracer,  method)(%sEndpoint)
-				%sEndpoint = LoggingMiddleware(log.With(logger, "method", method))(%sEndpoint)
-				%sEndpoint = InstrumentingMiddleware(duration.With("method", method))(%sEndpoint)
-				%sEndpoint = jwt.NewParser(kf, stdjwt.SigningMethodHS256, claimsFactory)(%sEndpoint)
-				set.%sEndpoint = %sEndpoint
+				ep := Make%sEndpoint(svc)
+				ep = opentracing.TraceServer(otTracer, method)(ep)
+				ep = zipkin.TraceEndpoint(zipkinTracer,  method)(ep)
+				ep = LoggingMiddleware(log.With(logger, "method", method))(ep)
+				ep = InstrumentingMiddleware(duration.With("method", method))(ep)
+				ep = jwt.NewParser(kf, stdjwt.SigningMethodHS256, claimsFactory)(ep)
+				set.%sEndpoint = ep
 			}
 			`, lowerName,
-				lowerName,
-				lowerName,
 				upperName,
-				lowerName,
-				lowerName,
-				lowerName,
-				lowerName,
-				lowerName,
-				lowerName,
-				lowerName,
-				lowerName,
-				lowerName,
-				lowerName,
-				upperName,
-				lowerName)
+				upperName)
 		}
 
 	}

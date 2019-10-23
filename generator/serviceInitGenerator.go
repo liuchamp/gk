@@ -366,8 +366,8 @@ func (sg *ServiceInitGenerator) generateHttpTransport(name string, iface *parser
 			`code := http.StatusInternalServerError
 			 msg := err.Error()
 			 switch msg {
-			 case ErrJWTTokenIsExpired.Error():
-				code = http.StatusUnauthorized
+			 case ErrJWTTokenIsExpired.Error(), ErrJWTTokenNotPassParse.Error(), ErrJWTTokenIsMalformed.Error():
+				code = 103
 			 default:
 			 	code = http.StatusInternalServerError
 			 }
@@ -1016,33 +1016,19 @@ func (sg *ServiceInitGenerator) generateEndpoints(name string, iface *parser.Int
 		upperName := utils.ToUpperFirstCamelCase(v.Name)
 
 		file.Methods[0].Body += fmt.Sprintf(`
-		var %sEndpoint endpoint.Endpoint
 		{
 			method := "%s"
-			%sEndpoint = Make%sEndpoint(svc)
-			%sEndpoint = opentracing.TraceServer(otTracer, method)(%sEndpoint)
-			%sEndpoint = zipkin.TraceEndpoint(zipkinTracer,  method)(%sEndpoint)
-			%sEndpoint = LoggingMiddleware(log.With(logger, "method", method))(%sEndpoint)
-			%sEndpoint = InstrumentingMiddleware(duration.With("method", method))(%sEndpoint)
-			%sEndpoint = jwt.NewParser(kf, stdjwt.SigningMethodHS256, claimsFactory)(%sEndpoint)
-			set.%sEndpoint = %sEndpoint
+			ep := Make%sEndpoint(svc)
+			ep = opentracing.TraceServer(otTracer, method)(ep)
+			ep = zipkin.TraceEndpoint(zipkinTracer,  method)(ep)
+			ep = LoggingMiddleware(log.With(logger, "method", method))(ep)
+			ep = InstrumentingMiddleware(duration.With("method", method))(ep)
+			ep = jwt.NewParser(kf, stdjwt.SigningMethodHS256, claimsFactory)(ep)
+			set.%sEndpoint = ep
 		}
 		`, lowerName,
-			lowerName,
-			lowerName,
 			upperName,
-			lowerName,
-			lowerName,
-			lowerName,
-			lowerName,
-			lowerName,
-			lowerName,
-			lowerName,
-			lowerName,
-			lowerName,
-			lowerName,
-			upperName,
-			lowerName)
+			upperName)
 	}
 	file.Methods[0].Body += "\n return set"
 
@@ -1145,6 +1131,34 @@ func (sg *ServiceInitGenerator) generateEndpointsMiddleware(name string, iface *
 		`),
 		[]parser.NamedTypeValue{
 			parser.NewNameType("logger", "log.Logger"),
+		},
+		[]parser.NamedTypeValue{
+			parser.NewNameType("", "endpoint.Middleware"),
+		},
+	))
+	file.Methods = append(file.Methods, parser.NewMethodWithComment(
+		"AuthenticationMiddleware",
+		fmt.Sprintf(`
+		AuthenticationMiddleware returns an endpoint middleware that check the authentication,
+		and the resulting error, if any.
+		`),
+		parser.NamedTypeValue{},
+		fmt.Sprintf(`
+		return func(next endpoint.Endpoint) endpoint.Endpoint {
+			return func(ctx context.Context, request interface{}) (response interface{}, err error) {
+				if at := header.GetHeader(ctx, "access_type"); at != "2" {
+					switch methodName {
+					case "methodName":
+						return next(ctx, request)
+					default:
+						return nil, errors.New("access restricted")
+					}
+				}
+			}
+		}
+		`),
+		[]parser.NamedTypeValue{
+			parser.NewNameType("methodName", "string"),
 		},
 		[]parser.NamedTypeValue{
 			parser.NewNameType("", "endpoint.Middleware"),
