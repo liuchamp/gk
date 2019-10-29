@@ -285,6 +285,7 @@ func (sg *ServiceInitGenerator) generateHttpTransport(name string, iface *parser
 		parser.NewNameTypeValue("ErrJWTTokenIsExpired", "", `errors.New("rpc error: code = Unknown desc = JWT Token is expired")`),
 		parser.NewNameTypeValue("ErrJWTTokenNotPassParse", "", `errors.New("rpc error: code = Unknown desc = token up for parsing was not passed through the context")`),
 		parser.NewNameTypeValue("ErrJWTTokenIsMalformed", "", `errors.New("rpc error: code = Unknown desc = JWT Token is malformed")`),
+		parser.NewNameTypeValue("ErrAccessRestricted", "", `errors.New("rpc error: code = Unknown desc = access restricted")`),
 	}
 
 	handlerFile.Structs = []parser.Struct{
@@ -366,8 +367,10 @@ func (sg *ServiceInitGenerator) generateHttpTransport(name string, iface *parser
 			`code := http.StatusInternalServerError
 			 msg := err.Error()
 			 switch msg {
-			 case ErrJWTTokenIsExpired.Error(), ErrJWTTokenNotPassParse.Error(), ErrJWTTokenIsMalformed.Error(), errors.New("access restricted").Error():
+			 case ErrJWTTokenIsExpired.Error(), ErrJWTTokenNotPassParse.Error(), ErrJWTTokenIsMalformed.Error():
 				code = 103
+             case ErrAccessRestricted.Error():
+				code = 104
 			 default:
 			 	code = http.StatusInternalServerError
 			 }
