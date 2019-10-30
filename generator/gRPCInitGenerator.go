@@ -449,7 +449,7 @@ func (sg *GRPCInitGenerator) GenerateEndpointClient(name string) (err error) {
 		parser.NewNameType("", "\"google.golang.org/grpc\"\n"),
 
 		parser.NewNameType("", "\"github.com/go-kit/kit/sd\""),
-		parser.NewNameType("ketcd", "\"github.com/go-kit/kit/sd/etcd\""),
+		parser.NewNameType("ketcd", "\"github.com/go-kit/kit/sd/etcdv3\""),
 		parser.NewNameType("", "\"github.com/go-kit/kit/endpoint\""),
 		parser.NewNameType("", "\"github.com/go-kit/kit/sd/lb\""),
 		parser.NewNameType("", "\"github.com/go-kit/kit/log\"\n"),
