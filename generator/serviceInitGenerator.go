@@ -1157,6 +1157,7 @@ func (sg *ServiceInitGenerator) generateEndpointsMiddleware(name string, iface *
 						return nil, errors.New("access restricted")
 					}
 				}
+				return
 			}
 		}
 		`),
