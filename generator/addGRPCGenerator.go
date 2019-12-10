@@ -194,6 +194,9 @@ func (sg *AddGRPCGenerator) UpdateProtobuf(name string, iface *parser.Interface,
 	var pbModel *parser.Proto
 	if pbModel, err = pp.Parse([]byte(s)); err != nil {
 		logrus.Error("err", err.Error())
+		fmt.Println("=========s==========")
+		fmt.Printf("%v\n", string(s))
+		fmt.Println("=========e==========")
 		return err
 	}
 

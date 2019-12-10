@@ -2,6 +2,8 @@ package parser
 
 import (
 	"strings"
+
+	"github.com/emicklei/proto"
 )
 
 type ParsedSrc interface {
@@ -15,6 +17,7 @@ type NamedTypeValue struct {
 	HasValue bool
 	Comment  string
 	Tag      string
+	Options  []*proto.Option
 }
 
 func NewNameType(name string, tp string) NamedTypeValue {

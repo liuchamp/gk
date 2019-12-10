@@ -1,6 +1,13 @@
 syntax = "proto3";
+
 package {{toSnakeCase .PackageName}};
-// The {{.PackageName}} service definition.
+
+{{range $m,$n := .Imports}}import "{{$n.Filename}}";
+{{end}}
+
+{{range $m,$n := .Options}}option {{$n.Name}} = {{$n.Constant.Source}};
+{{end}}
+
 service {{.ServiceName}} {
 {{range $i,$v := .Methods}}    rpc {{$v.Name}} ({{$v.Name}}Req) returns ({{$v.Name}}Res) {}
 {{end}}}
@@ -8,7 +15,7 @@ service {{.ServiceName}} {
 
 {{range $m,$n := .Messages}}
 message {{$n.Name}} {
-{{range $k,$v := $n.Vars}}     {{$v.Type}} {{$v.Name}} = {{$v.Value}};{{end}}
+{{range $k,$v := $n.Vars}}     {{$v.Type}} {{$v.Name}} = {{$v.Value}}{{if $v.Options}}[{{range $x,$y := $v.Options}}{{if $x}}, {{end}}{{$y.Name}} = '{{$y.Constant.Source}}'{{end}}]{{end}};{{end}}
 }
 {{end}}
 
