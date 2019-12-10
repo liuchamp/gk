@@ -11,7 +11,7 @@ import (
 )
 
 func main() {
-	logrus.SetReportCaller(true)
+	logrus.SetReportCaller(false)
 	viper.AutomaticEnv()
 	gosrc := utils.GetGOPATH() + afero.FilePathSeparator + "src" + afero.FilePathSeparator
 	pwd, err := os.Getwd()
