@@ -536,6 +536,30 @@ func (sg *GRPCInitGenerator) GenerateEndpointClient(name string) (err error) {
 		},
 	))
 
+	handler.Methods = append(handler.Methods, parser.NewMethod(
+		"factoryWithoutSd",
+		parser.NamedTypeValue{},
+		fmt.Sprintf(`
+			conn, err := grpc.Dial(svcName, grpc.WithInsecure())
+			if err != nil {
+				return nil
+			}
+			service := NewGRPCClient(conn, otTracer, zipkinTracer, logger)
+			ep := makeEndpoint(service)
+			return ep
+		`),
+		[]parser.NamedTypeValue{
+			parser.NewNameType("svcName", "string"),
+			parser.NewNameType("makeEndpoint", fmt.Sprintf("func(%sservice.Service) endpoint.Endpoint", name)),
+			parser.NewNameType("otTracer", "stdopentracing.Tracer"),
+			parser.NewNameType("zipkinTracer", "*stdzipkin.Tracer"),
+			parser.NewNameType("logger", "log.Logger"),
+		},
+		[]parser.NamedTypeValue{
+			parser.NewNameType("", "endpoint.Endpoint"),
+		},
+	))
+
 	for _, v := range iface.Methods {
 		handler.Methods[0].Body += "\n" + fmt.Sprintf(`
 		{
