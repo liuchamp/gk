@@ -315,7 +315,7 @@ func (sg *ServiceInitGenerator) generateHttpTransport(name string, iface *parser
 			m := http.NewServeMux()`,
 			[]parser.NamedTypeValue{
 				parser.NewNameType("endpoints", fmt.Sprintf("%sendpoint", name)+".Set"),
-				parser.NewNameType("otTracer", "stdopentracing.Tracer"),
+				//parser.NewNameType("otTracer", "stdopentracing.Tracer"),
 				parser.NewNameType("zipkinTracer", "*stdzipkin.Tracer"),
 				parser.NewNameType("logger", "log.Logger"),
 			},
@@ -427,9 +427,9 @@ func (sg *ServiceInitGenerator) generateHttpTransport(name string, iface *parser
 		//))
 		handlerFile.Methods[0].Body += "\n" + fmt.Sprintf(`
 			{
-				ops := append(options, httptransport.ServerBefore(opentracing.HTTPToContext(otTracer, "%s", logger)))
-				ops = append(ops, httptransport.ServerBefore(jwt.HTTPToContext()))
-				ops = append(ops, httptransport.ServerBefore(header.HTTPToContext()))
+				//ops := append(options, httptransport.ServerBefore(opentracing.HTTPToContext(otTracer, "%s", logger)))
+				ops := append(options, httptransport.ServerBefore(jwt.HTTPToContext()))
+				//ops = append(ops, httptransport.ServerBefore(header.HTTPToContext()))
 				m.Handle("/%s", httptransport.NewServer(
 				endpoints.%sEndpoint,
 				decodeHTTP%sReq,
@@ -917,7 +917,7 @@ func (sg *ServiceInitGenerator) generateEndpoints(name string, iface *parser.Int
 			parser.NamedTypeValue{},
 			fmt.Sprintf(`
 			kf := func(token *stdjwt.Token) (interface{}, error) {
-				return []byte(jwtKey), nil
+				return []byte(GlobalJWTToken), nil
 			}
 			claimsFactory := func() stdjwt.Claims {
 				return &stdjwt.MapClaims{}
@@ -926,9 +926,7 @@ func (sg *ServiceInitGenerator) generateEndpoints(name string, iface *parser.Int
 				parser.NewNameType("svc", fmt.Sprintf("%sservice", name)+"."+iface.Name),
 				parser.NewNameType("logger", "log.Logger"),
 				parser.NewNameType("duration", "metrics.Histogram"),
-				parser.NewNameType("otTracer", "stdopentracing.Tracer"),
 				parser.NewNameType("zipkinTracer", "*stdzipkin.Tracer"),
-				parser.NewNameType("jwtKey", "string"),
 			},
 			[]parser.NamedTypeValue{
 				parser.NewNameType("set", "Set"),
@@ -1022,7 +1020,7 @@ func (sg *ServiceInitGenerator) generateEndpoints(name string, iface *parser.Int
 		{
 			method := "%s"
 			ep := Make%sEndpoint(svc)
-			ep = opentracing.TraceServer(otTracer, method)(ep)
+			//ep = opentracing.TraceServer(otTracer, method)(ep)
 			ep = zipkin.TraceEndpoint(zipkinTracer,  method)(ep)
 			ep = LoggingMiddleware(log.With(logger, "method", method))(ep)
 			ep = InstrumentingMiddleware(duration.With("method", method))(ep)
@@ -1139,35 +1137,35 @@ func (sg *ServiceInitGenerator) generateEndpointsMiddleware(name string, iface *
 			parser.NewNameType("", "endpoint.Middleware"),
 		},
 	))
-	file.Methods = append(file.Methods, parser.NewMethodWithComment(
-		"AuthenticationMiddleware",
-		fmt.Sprintf(`
-		AuthenticationMiddleware returns an endpoint middleware that check the authentication,
-		and the resulting error, if any.
-		`),
-		parser.NamedTypeValue{},
-		fmt.Sprintf(`
-		return func(next endpoint.Endpoint) endpoint.Endpoint {
-			return func(ctx context.Context, request interface{}) (response interface{}, err error) {
-				if at := header.GetHeader(ctx, "access_type"); at != "2" {
-					switch methodName {
-					case "methodName":
-						return next(ctx, request)
-					default:
-						return nil, errors.New("access restricted")
-					}
-				}
-				return
-			}
-		}
-		`),
-		[]parser.NamedTypeValue{
-			parser.NewNameType("methodName", "string"),
-		},
-		[]parser.NamedTypeValue{
-			parser.NewNameType("", "endpoint.Middleware"),
-		},
-	))
+	//file.Methods = append(file.Methods, parser.NewMethodWithComment(
+	//	"AuthenticationMiddleware",
+	//	fmt.Sprintf(`
+	//	AuthenticationMiddleware returns an endpoint middleware that check the authentication,
+	//	and the resulting error, if any.
+	//	`),
+	//	parser.NamedTypeValue{},
+	//	fmt.Sprintf(`
+	//	return func(next endpoint.Endpoint) endpoint.Endpoint {
+	//		return func(ctx context.Context, request interface{}) (response interface{}, err error) {
+	//			if at := header.GetHeader(ctx, "access_type"); at != "2" {
+	//				switch methodName {
+	//				case "methodName":
+	//					return next(ctx, request)
+	//				default:
+	//					return nil, errors.New("access restricted")
+	//				}
+	//			}
+	//			return
+	//		}
+	//	}
+	//	`),
+	//	[]parser.NamedTypeValue{
+	//		parser.NewNameType("methodName", "string"),
+	//	},
+	//	[]parser.NamedTypeValue{
+	//		parser.NewNameType("", "endpoint.Middleware"),
+	//	},
+	//))
 	return defaultFs.WriteFile(eFile, file.String(), false)
 }
 func (sg *ServiceInitGenerator) generateServiceInstrumentingMiddleware(name string, iface *parser.Interface) error {

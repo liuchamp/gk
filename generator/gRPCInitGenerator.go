@@ -121,7 +121,7 @@ func (sg *GRPCInitGenerator) Generate(name string) (err error) {
 		gs := &grpcServer{}`,
 		[]parser.NamedTypeValue{
 			parser.NewNameType("endpoints", fmt.Sprintf("%sendpoint.Set", name)),
-			parser.NewNameType("otTracer", "stdopentracing.Tracer"),
+			//parser.NewNameType("otTracer", "stdopentracing.Tracer"),
 			parser.NewNameType("zipkinTracer", "*stdzipkin.Tracer"),
 			parser.NewNameType("logger", "log.Logger"),
 		},
@@ -143,7 +143,7 @@ func (sg *GRPCInitGenerator) Generate(name string) (err error) {
 		`, name),
 		[]parser.NamedTypeValue{
 			parser.NewNameType("conn", "*grpc.ClientConn"),
-			parser.NewNameType("otTracer", "stdopentracing.Tracer"),
+			//parser.NewNameType("otTracer", "stdopentracing.Tracer"),
 			parser.NewNameType("zipkinTracer", "*stdzipkin.Tracer"),
 			parser.NewNameType("logger", "log.Logger"),
 		},
@@ -341,9 +341,9 @@ func (sg *GRPCInitGenerator) Generate(name string) (err error) {
 		//init grpcServer method
 		handler.Methods[0].Body += "\n" + fmt.Sprintf(`
 			{
-				ops := append(options, grpctransport.ServerBefore(opentracing.GRPCToContext(otTracer, "%s", logger)))
-				ops = append(ops, grpctransport.ServerBefore(jwt.GRPCToContext()))
-				ops = append(ops, grpctransport.ServerBefore(header.GRPCToContext()))
+				//ops := append(options, grpctransport.ServerBefore(opentracing.GRPCToContext(otTracer, "%s", logger)))
+				ops := append(options, grpctransport.ServerBefore(jwt.GRPCToContext()))
+				//ops = append(ops, grpctransport.ServerBefore(header.GRPCToContext()))
 				gs.%s = grpctransport.NewServer(
 					endpoints.%sEndpoint,
 					decodeGRPC%sReq,
@@ -358,9 +358,9 @@ func (sg *GRPCInitGenerator) Generate(name string) (err error) {
 		upperName := utils.ToUpperFirstCamelCase(v.Name)
 		handler.Methods[1].Body += "\n" + fmt.Sprintf(`
 			{
-				ops := append(options, grpctransport.ClientBefore(opentracing.ContextToGRPC(otTracer, logger)))
-				ops = append(ops, grpctransport.ClientBefore(jwt.ContextToGRPC()))
-				ops = append(ops, grpctransport.ClientBefore(header.ContextToGRPC()))
+				//ops := append(options, grpctransport.ClientBefore(opentracing.ContextToGRPC(otTracer, logger)))
+				ops := append(options, grpctransport.ClientBefore(jwt.ContextToGRPC()))
+				//ops = append(ops, grpctransport.ClientBefore(header.ContextToGRPC()))
 				ep := grpctransport.NewClient(
 					conn,
 					"%spb.%s",
@@ -501,7 +501,7 @@ func (sg *GRPCInitGenerator) GenerateEndpointClient(name string) (err error) {
 			parser.NewNameType("retryTimeout", "time.Duration"),
 			parser.NewNameType("logger", "log.Logger"),
 			parser.NewNameType("etcdClient", "ketcd.Client"),
-			parser.NewNameType("otTracer", "stdopentracing.Tracer"),
+			//parser.NewNameType("otTracer", "stdopentracing.Tracer"),
 			parser.NewNameType("zipkinTracer", "*stdzipkin.Tracer"),
 		},
 		[]parser.NamedTypeValue{
@@ -519,7 +519,7 @@ func (sg *GRPCInitGenerator) GenerateEndpointClient(name string) (err error) {
 			if err != nil {
 				return nil, nil, err
 			}
-			service := NewGRPCClient(conn, otTracer, zipkinTracer, logger)
+			service := NewGRPCClient(conn, zipkinTracer, logger)
 			ep := makeEndpoint(service)
 	
 			return ep, conn, nil
@@ -527,7 +527,7 @@ func (sg *GRPCInitGenerator) GenerateEndpointClient(name string) (err error) {
 		`),
 		[]parser.NamedTypeValue{
 			parser.NewNameType("makeEndpoint", fmt.Sprintf("func(%sservice.Service) endpoint.Endpoint", name)),
-			parser.NewNameType("otTracer", "stdopentracing.Tracer"),
+			//parser.NewNameType("otTracer", "stdopentracing.Tracer"),
 			parser.NewNameType("zipkinTracer", "*stdzipkin.Tracer"),
 			parser.NewNameType("logger", "log.Logger"),
 		},
@@ -544,14 +544,14 @@ func (sg *GRPCInitGenerator) GenerateEndpointClient(name string) (err error) {
 			if err != nil {
 				return nil
 			}
-			service := NewGRPCClient(conn, otTracer, zipkinTracer, logger)
+			service := NewGRPCClient(conn, zipkinTracer, logger)
 			ep := makeEndpoint(service)
 			return ep
 		`),
 		[]parser.NamedTypeValue{
 			parser.NewNameType("svcName", "string"),
 			parser.NewNameType("makeEndpoint", fmt.Sprintf("func(%sservice.Service) endpoint.Endpoint", name)),
-			parser.NewNameType("otTracer", "stdopentracing.Tracer"),
+			//parser.NewNameType("otTracer", "stdopentracing.Tracer"),
 			parser.NewNameType("zipkinTracer", "*stdzipkin.Tracer"),
 			parser.NewNameType("logger", "log.Logger"),
 		},
@@ -563,7 +563,7 @@ func (sg *GRPCInitGenerator) GenerateEndpointClient(name string) (err error) {
 	for _, v := range iface.Methods {
 		handler.Methods[0].Body += "\n" + fmt.Sprintf(`
 		{
-			factory := factory(%sendpoint.Make%sEndpoint, otTracer, zipkinTracer, logger)
+			factory := factory(%sendpoint.Make%sEndpoint, zipkinTracer, logger)
 			endpointer := sd.NewEndpointer(instancer, factory, logger)
 			balancer := lb.NewRoundRobin(endpointer)
 			retry := lb.Retry(retryMax, retryTimeout, balancer)

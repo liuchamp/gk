@@ -248,9 +248,9 @@ func (sg *GRPCUpdateGenerator) Generate(name string) (err error) {
 		//init grpcServer method
 		handler.Methods[0].Body += "\n" + fmt.Sprintf(`
 			{
-				ops := append(options, grpctransport.ServerBefore(opentracing.GRPCToContext(otTracer, "%s", logger)))
-				ops = append(ops, grpctransport.ServerBefore(jwt.GRPCToContext()))
-				ops = append(ops, grpctransport.ServerBefore(header.GRPCToContext()))
+				//ops := append(options, grpctransport.ServerBefore(opentracing.GRPCToContext(otTracer, "%s", logger)))
+				ops := append(options, grpctransport.ServerBefore(jwt.GRPCToContext()))
+				//ops = append(ops, grpctransport.ServerBefore(header.GRPCToContext()))
 				gs.%s = grpctransport.NewServer(
 					endpoints.%sEndpoint,
 					decodeGRPC%sReq,
@@ -265,9 +265,9 @@ func (sg *GRPCUpdateGenerator) Generate(name string) (err error) {
 		upperName := utils.ToUpperFirstCamelCase(v.Name)
 		handler.Methods[1].Body += "\n" + fmt.Sprintf(`
 			{
-				ops := append(options, grpctransport.ClientBefore(opentracing.ContextToGRPC(otTracer, logger)))
-				ops = append(ops, grpctransport.ClientBefore(jwt.ContextToGRPC()))
-				ops = append(ops, grpctransport.ClientBefore(header.ContextToGRPC()))
+				//ops := append(options, grpctransport.ClientBefore(opentracing.ContextToGRPC(otTracer, logger)))
+				ops := append(options, grpctransport.ClientBefore(jwt.ContextToGRPC()))
+				//ops = append(ops, grpctransport.ClientBefore(header.ContextToGRPC()))
 				ep := grpctransport.NewClient(
 					conn,
 					"%spb.%s",
@@ -363,7 +363,7 @@ func (sg *GRPCUpdateGenerator) UpdateEndpointClient(name string) (err error) {
 		}
 		handler.Methods[0].Body += "\n" + fmt.Sprintf(`
 			{
-				factory := factory(%sendpoint.Make%sEndpoint, otTracer, zipkinTracer, logger)
+				factory := factory(%sendpoint.Make%sEndpoint, zipkinTracer, logger)
 				endpointer := sd.NewEndpointer(instancer, factory, logger)
 				balancer := lb.NewRoundRobin(endpointer)
 				retry := lb.Retry(retryMax, retryTimeout, balancer)

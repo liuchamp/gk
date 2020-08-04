@@ -701,9 +701,9 @@ func (sg *ServiceUpdateGenerator) generateHttpTransport(name string, iface *pars
 		))
 		handlerFile.Methods[0].Body += "\n" + fmt.Sprintf(`
 			{
-				ops := append(options, httptransport.ServerBefore(opentracing.HTTPToContext(otTracer, "%s", logger)))
-				ops = append(ops, httptransport.ServerBefore(jwt.HTTPToContext()))
-				ops = append(ops, httptransport.ServerBefore(header.HTTPToContext()))
+				//ops := append(options, httptransport.ServerBefore(opentracing.HTTPToContext(otTracer, "%s", logger)))
+				ops := append(options, httptransport.ServerBefore(jwt.HTTPToContext()))
+				//ops = append(ops, httptransport.ServerBefore(header.HTTPToContext()))
 				m.Handle("/%s", httptransport.NewServer(
 				endpoints.%sEndpoint,
 				decodeHTTP%sReq,
