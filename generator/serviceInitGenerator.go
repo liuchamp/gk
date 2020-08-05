@@ -63,17 +63,17 @@ func (sg *ServiceInitGenerator) Generate(name string) error {
 		return errors.New(fmt.Sprintf("Transport `%s` not supported", transport))
 	}
 	p := parser.NewFileParser()
-	s, err := defaultFs.ReadFile(sfile)
+	fileBytes, err := defaultFs.ReadFile(sfile)
 	if err != nil {
 		return err
 	}
-	f, err := p.Parse([]byte(s))
+	fileHandler, err := p.Parse([]byte(fileBytes))
 	if err != nil {
 		return err
 	}
 
 	var iface *parser.Interface
-	for _, v := range f.Interfaces {
+	for _, v := range fileHandler.Interfaces {
 		if v.Name == iname {
 			iface = &v
 		}
@@ -84,7 +84,7 @@ func (sg *ServiceInitGenerator) Generate(name string) error {
 
 	{
 		var isSvcExist bool
-		for _, v := range f.Structs {
+		for _, v := range fileHandler.Structs {
 			if v.Name == "basicService" {
 				isSvcExist = true
 				break
@@ -142,17 +142,17 @@ func (sg *ServiceInitGenerator) Generate(name string) error {
 		[]parser.NamedTypeValue{parser.NewNameType("Logger", "log.Logger")},
 	)
 	exists := false
-	for _, v := range f.Structs {
+	for _, v := range fileHandler.Structs {
 		if v.Name == stub.Name {
 			logrus.Infof("Service `%s` structure already exists so it will not be recreated.", stub.Name)
 			exists = true
 		}
 	}
 	if !exists {
-		s += "\n" + stub.String()
+		fileBytes += "\n" + stub.String()
 	}
 	exists = false
-	for _, v := range f.Methods {
+	for _, v := range fileHandler.Methods {
 		if v.Name == "NewBasicService" {
 			logrus.Infof("Service `%s` New function already exists so it will not be recreated", stub.Name)
 			exists = true
@@ -180,12 +180,12 @@ func (sg *ServiceInitGenerator) Generate(name string) error {
 				parser.NewNameType("svc", "Service"),
 			},
 		)
-		s += "\n" + newMethod.String()
+		fileBytes += "\n" + newMethod.String()
 	}
 	for _, m := range iface.Methods {
 		exists = false
 		m.Struct = parser.NewNameType(strings.ToLower(iface.Name[:1]), stub.Name)
-		for _, v := range f.Methods {
+		for _, v := range fileHandler.Methods {
 			if v.Name == m.Name && v.Struct.Type == m.Struct.Type {
 				logrus.Infof("Service method `%s` already exists so it will not be recreated.", v.Name)
 				exists = true
@@ -194,10 +194,10 @@ func (sg *ServiceInitGenerator) Generate(name string) error {
 		m.Comment = fmt.Sprintf(`// Implement the business logic of %s`, m.Name)
 		m.Body = fmt.Sprintf("To-do")
 		if !exists {
-			s += "\n" + m.String()
+			fileBytes += "\n" + m.String()
 		}
 	}
-	d, err := imports.Process("g", []byte(s), nil)
+	d, err := imports.Process("g", []byte(fileBytes), nil)
 	if err != nil {
 		return err
 	}
