@@ -39,7 +39,7 @@ var (
 	GrpcAddr  = flag.String("grpc-addr", ":10000", "gRPC listen address")
 	DebugAddr = flag.String("debug-addr", ":10001", "Debug and metrics listen address")
 	LogLevel  = flag.String("log-level", "debug", "Set log level (debug|info|warn|error)")
-	SvcName   = flag.String("svc-name", "frontapi", "the name of this service in service discovery")
+	SvcName   = flag.String("svc-name", "{{.ServiceName}}", "the name of this service in service discovery")
 	//重试
 	RetryMax     = flag.Int("retry-max", 1, "per-request retries to different instances")
 	RetryTimeout = flag.Duration("retry-timeout", 30*time.Second, "per-request timeout, including retries")
@@ -118,11 +118,11 @@ func main() {
 		errc <- fmt.Errorf("%s", <-c)
 	}()
 
-	var basicService svcservice.Service
+	var basicService {{.ServiceName}}service.Service
 	{
-		basicService = svcservice.NewBasicService(logger)
-		basicService = svcservice.LoggingMiddleware(logger)(basicService)
-		basicService = svcservice.InstrumentingMiddleware(requestCount, requestLatency)(basicService)
+		basicService = {{.ServiceName}}service.NewBasicService(logger)
+		basicService = {{.ServiceName}}service.LoggingMiddleware(logger)(basicService)
+		basicService = {{.ServiceName}}service.InstrumentingMiddleware(requestCount, requestLatency)(basicService)
 	}
 
 	// gRPC transport.
@@ -134,11 +134,11 @@ func main() {
 			errc <- err
 			return
 		}
-		endpoints := svcendpoint.New(basicService, logger, duration, zipkinTracer)
-		grpcHandler := svctransport.NewGRPCServer(endpoints, zipkinTracer, logger)
+		endpoints := {{.ServiceName}}endpoint.New(basicService, logger, duration, zipkinTracer)
+		grpcHandler := {{.ServiceName}}transport.NewGRPCServer(endpoints, zipkinTracer, logger)
 		ka := keepalive.ServerParameters{}
 		s := grpc.NewServer(grpc.KeepaliveParams(ka))
-		svcpb.RegisterUserServer(s, grpcHandler)
+		{{.ServiceName}}pb.Register{{toUpperFirstCamelCase .ServiceName}}Server(s, grpcHandler)
 
 		_ = logger.Log("addr", *GrpcAddr)
 		errc <- s.Serve(ln)

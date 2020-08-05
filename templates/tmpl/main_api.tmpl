@@ -33,7 +33,7 @@ var (
 	HttpAddr  = flag.String("http-addr", ":10000", "Address for HTTP (JSON) server")
 	DebugAddr = flag.String("debug-addr", ":10001", "Debug and metrics listen address")
 	LogLevel  = flag.String("log-level", "debug", "Set log level (debug|info|warn|error)")
-	SvcName   = flag.String("svc-name", "frontapi", "the name of this service in service discovery")
+	SvcName   = flag.String("svc-name", "gateway", "the name of this service in service discovery")
 	//重试
 	RetryMax     = flag.Int("retry-max", 1, "per-request retries to different instances")
 	RetryTimeout = flag.Duration("retry-timeout", 30*time.Second, "per-request timeout, including retries")

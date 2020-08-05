@@ -43,7 +43,7 @@ func (sg *ApiMainGenerator) Generate() error {
 		return nil
 	}
 
-	logrus.Info(fmt.Sprintf("Generating api gateway main"))
+	logrus.Info(fmt.Sprintf("Generating api gateway"))
 
 	err = defaultFs.MkdirAll(path)
 	if err != nil {

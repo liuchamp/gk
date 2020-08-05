@@ -22,15 +22,12 @@ func (sg *ServiceMainGenerator) Generate(name string) error {
 
 	te := template.NewEngine()
 	defaultFs := fs.Get()
-	path, err := te.ExecuteString(viper.GetString("cmd.path"), map[string]string{
-		"ServiceName": name,
-	})
+	model := map[string]string{"ServiceName": name}
+	path, err := te.ExecuteString(viper.GetString("cmd.path"), model)
 	if err != nil {
 		return err
 	}
-	fname, err := te.ExecuteString(viper.GetString("cmd.file_name"), map[string]string{
-		"ServiceName": name,
-	})
+	fname, err := te.ExecuteString(viper.GetString("cmd.file_name"), model)
 	if err != nil {
 		return err
 	}
@@ -46,7 +43,7 @@ func (sg *ServiceMainGenerator) Generate(name string) error {
 	if err != nil {
 		return err
 	}
-	tmpl, err := te.Execute("main_api", nil)
+	tmpl, err := te.Execute("main_svc", model)
 	if err != nil {
 		return err
 	}
