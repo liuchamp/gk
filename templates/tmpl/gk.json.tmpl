@@ -26,7 +26,11 @@
   "path":"{{`{{toSnakeCase .ServiceName}}`}}{{fileSeparator}}{{`{{toSnakeCase .ServiceName}}`}}pb"
   },
   "cmd":{
-   "path":"cmd{{fileSeparator}}{{`{{toSnakeCase .ServiceName}}`}}",
+   "path":"{{`{{toSnakeCase .ServiceName}}`}}",
+   "file_name":"main.go"
+  },
+  "gateway":{
+   "path":"{{`{{toSnakeCase .ServiceName}}`}}",
    "file_name":"main.go"
   },
   "default_transport":"http"

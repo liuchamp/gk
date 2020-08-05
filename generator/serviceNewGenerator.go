@@ -19,6 +19,18 @@ func NewServiceGenerator() *ServiceGenerator {
 }
 
 func (sg *ServiceGenerator) Generate(name string) error {
+	{
+		apiGen := NewApiMainGenerator()
+		if err := apiGen.Generate(); err != nil {
+			return err
+		}
+	}
+	{
+		mainGen := NewServiceMainGenerator()
+		if err := mainGen.Generate(name); err != nil {
+			return err
+		}
+	}
 	logrus.Info(fmt.Sprintf("Generating service: %s", name))
 	f := parser.NewFile()
 	f.Package = fmt.Sprintf("%sservice", name)
