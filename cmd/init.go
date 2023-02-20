@@ -4,7 +4,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"github.com/yiv/gk/generator"
+	"github.com/liuchamp/gk/generator"
 )
 
 // initCmd represents the init command

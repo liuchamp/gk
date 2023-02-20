@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/sirupsen/logrus"
-	"github.com/yiv/gk/utils"
+	"github.com/liuchamp/gk/utils"
 	"path/filepath"
 	"reflect"
 	"strings"

@@ -3,7 +3,7 @@ package cmd
 import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-	"github.com/yiv/gk/generator"
+	"github.com/liuchamp/gk/generator"
 )
 
 // serviceCmd represents the service command

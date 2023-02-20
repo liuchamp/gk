@@ -8,12 +8,12 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
-	template "github.com/yiv/gk/templates"
+	template "github.com/liuchamp/gk/templates"
 	"golang.org/x/tools/imports"
 
-	"github.com/yiv/gk/fs"
-	"github.com/yiv/gk/parser"
-	"github.com/yiv/gk/utils"
+	"github.com/liuchamp/gk/fs"
+	"github.com/liuchamp/gk/parser"
+	"github.com/liuchamp/gk/utils"
 )
 
 type ServiceUpdateGenerator struct {

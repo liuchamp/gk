@@ -2,7 +2,7 @@ package parser
 
 import (
 	"github.com/sirupsen/logrus"
-	template "github.com/yiv/gk/templates"
+	template "github.com/liuchamp/gk/templates"
 	"go/format"
 )
 

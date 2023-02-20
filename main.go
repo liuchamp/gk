@@ -4,8 +4,8 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/afero"
 	"github.com/spf13/viper"
-	"github.com/yiv/gk/cmd"
-	"github.com/yiv/gk/utils"
+	"github.com/liuchamp/gk/cmd"
+	"github.com/liuchamp/gk/utils"
 	"os"
 	"strings"
 )

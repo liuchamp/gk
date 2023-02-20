@@ -1,4 +1,4 @@
-module github.com/yiv/gk
+module github.com/liuchamp/gk
 
 go 1.12
 
@@ -6,8 +6,6 @@ require (
 	github.com/Songmu/prompter v0.2.0
 	github.com/alioygur/godash v0.0.0-20160919141744-af6b3da41c5a
 	github.com/emicklei/proto v1.6.13
-	github.com/gorilla/mux v1.7.4 // indirect
-	github.com/openzipkin/zipkin-go v0.2.2 // indirect
 	github.com/sirupsen/logrus v1.4.2
 	github.com/spf13/afero v1.2.2
 	github.com/spf13/cobra v0.0.4

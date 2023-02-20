@@ -7,8 +7,8 @@ import (
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"github.com/yiv/gk/fs"
-	"github.com/yiv/gk/templates"
+	"github.com/liuchamp/gk/fs"
+	"github.com/liuchamp/gk/templates"
 )
 
 // RootCmd represents the base command when called without any subcommands

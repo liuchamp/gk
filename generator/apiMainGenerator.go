@@ -6,8 +6,8 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 
-	"github.com/yiv/gk/fs"
-	template "github.com/yiv/gk/templates"
+	"github.com/liuchamp/gk/fs"
+	template "github.com/liuchamp/gk/templates"
 )
 
 type ApiMainGenerator struct {

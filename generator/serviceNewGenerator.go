@@ -6,9 +6,9 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 
-	"github.com/yiv/gk/fs"
-	"github.com/yiv/gk/parser"
-	template "github.com/yiv/gk/templates"
+	"github.com/liuchamp/gk/fs"
+	"github.com/liuchamp/gk/parser"
+	template "github.com/liuchamp/gk/templates"
 )
 
 type ServiceGenerator struct {

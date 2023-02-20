@@ -6,7 +6,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/afero"
 	"github.com/spf13/viper"
-	"github.com/yiv/gk/templates"
+	"github.com/liuchamp/gk/templates"
 	"os"
 )
 
